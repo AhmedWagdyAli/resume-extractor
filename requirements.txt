@@ -1,0 +1,3 @@
+langchain-community
+pdfminer
+pdfminer.six

@@ -1,0 +1,35 @@
+{% extends "base.html" %} {% block title %}Upload CV{% endblock %} {% block
+content %}
+
+<h1>Upload Your CV</h1>
+<form
+  method="POST"
+  action="/upload"
+  id="uploadForm"
+  enctype="multipart/form-data"
+>
+  <div class="form-group">
+    <label for="file">Select CV File:</label>
+    <input type="file" name="file" required class="form-control" />
+  </div>
+
+  <button type="submit" class="btn btn-success">Upload</button>
+</form>
+<!-- Spinner -->
+<div id="loadingSpinner" class="text-center mt-3" style="display: none">
+  <div class="spinner-border text-success" role="status">
+    <span class="sr-only">...</span>
+  </div>
+  <p>Uploading your CV, please wait...</p>
+</div>
+
+<script>
+  // Attach event listener to the form
+  document
+    .getElementById("uploadForm")
+    .addEventListener("submit", function (e) {
+      // Show the spinner
+      document.getElementById("loadingSpinner").style.display = "block";
+    });
+</script>
+{% endblock %}
