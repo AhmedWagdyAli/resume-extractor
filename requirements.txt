@@ -8,3 +8,5 @@ PyPDF2
 pdfplumber
 python-docx
 mysql-connector-python
+redis
+rq
