@@ -1,5 +1,6 @@
 from models import Certificates, Skills, CV, Experiences
 import re
+from dateutil import parser
 
 
 class CVService:
@@ -21,7 +22,20 @@ class CVService:
 
         if len(job_title) > 50:
             job_title = job_title[:50]
-
+        if parsed_data["professional_experience_in_years"] < 1:
+            total_experience_months = 0
+            for experience in parsed_data["professional_experience"]:
+                duration = experience["duration"]
+                start_date_str, end_date_str = duration.split("-")
+                start_date = parser.parse(start_date_str)
+                end_date = parser.parse(end_date_str)
+                months = (end_date.year - start_date.year) * 12 + (
+                    end_date.month - start_date.month
+                )
+                total_experience_months += months
+            parsed_data["professional_experience_in_years"] = (
+                total_experience_months // 12
+            )
         cv = CV(
             job_title=job_title,
             path_of_cv=parsed_data["path_of_cv"],
