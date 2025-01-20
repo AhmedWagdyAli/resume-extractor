@@ -1,6 +1,7 @@
 from models import Certificates, Skills, CV, Experiences
 import re
 from dateutil import parser
+import datetime
 
 
 class CVService:
@@ -22,16 +23,34 @@ class CVService:
 
         if len(job_title) > 50:
             job_title = job_title[:50]
-        if parsed_data["professional_experience_in_years"] < 1:
-            total_experience_months = 0
+
+        # Extract the first number from professional_experience_in_years
+        experience_years_str = re.findall(
+            r"\d+", str(parsed_data["professional_experience_in_years"])
+        )
+        experience_years = int(experience_years_str[0]) if experience_years_str else 0
+
+        total_experience_months = 0
+        if experience_years < 1:
             for experience in parsed_data["professional_experience"]:
                 duration = experience["duration"]
-                start_date_str, end_date_str = duration.split("-")
-                start_date = parser.parse(start_date_str)
-                end_date = parser.parse(end_date_str)
-                months = (end_date.year - start_date.year) * 12 + (
-                    end_date.month - start_date.month
-                )
+                if "-" in duration:
+                    start_date_str, end_date_str = duration.split("-")
+                    start_date = parser.parse(start_date_str.strip())
+                    if end_date_str.strip().lower() in ["present", "today"]:
+                        end_date = datetime.datetime.now()
+                    else:
+                        end_date = parser.parse(end_date_str.strip())
+                    months = (end_date.year - start_date.year) * 12 + (
+                        end_date.month - start_date.month
+                    )
+                else:
+                    years_months = re.findall(r"\d+", duration)
+                    months = (
+                        int(years_months[0]) * 12 + int(years_months[1])
+                        if len(years_months) == 2
+                        else 0
+                    )
                 total_experience_months += months
             parsed_data["professional_experience_in_years"] = (
                 total_experience_months // 12
