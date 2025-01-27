@@ -161,8 +161,10 @@ def upload_cv():
     fill_name_template(
         data, os.path.join(app.config["OUTPUT_FOLDER"], f"name_{unique_filename}")
     )
-    return data
-    """  # Send the file
+    return render_template("generate.html")
+
+    # return data
+    """  Send the file
     # return send_file(output_path, as_attachment=True)
     cv_data = service.get_cv(id)
     cv, skills, experiences = cv_data
@@ -185,7 +187,7 @@ def get_cv_data():
         format = request.form.get("format")
 
         # Validate format
-        valid_formats = ["normal", "code", "named"]
+        valid_formats = ["normal", "code", "name"]
         if format not in valid_formats:
             return jsonify({"error": "Invalid format specified"}), 400
 
@@ -324,19 +326,9 @@ def add_section(doc, title, items, bullet_points=False):
         doc.add_paragraph(items)
 
 
-def add_personal_info(doc, data, coded=False):
-    personal_info = [
-        f"Name: {data['name']}",
-        f"Email: {data['email']}",
-        f"Phone 1: {data['phone_1']}",
-        f"Phone 2: {data['phone_2'] or 'Not provided'}",
-        f"Address: {data['address'] or 'Not provided'}",
-        f"City: {data['city'] or 'Not provided'}",
-        f"LinkedIn: {data['linkedin'] or 'Not provided'}",
-        f"Professional Experience in Years: {data['professional_experience_in_years']}",
-        f"Highest Education: {data['highest_education']}",
-    ]
-    if coded == "coded":
+def add_personal_info(doc, data, coded):
+
+    if coded == "code":
         personal_info = [
             f"Name: {'**'}",
             f"Email: {'**@gmail.com'}",
@@ -357,6 +349,18 @@ def add_personal_info(doc, data, coded=False):
             f"Address: {data['address'] or 'Not provided'}",
             f"City: {data['city'] or 'Not provided'}",
             f"LinkedIn: {'**@linkedin.com' or 'Not provided'}",
+            f"Professional Experience in Years: {data['professional_experience_in_years']}",
+            f"Highest Education: {data['highest_education']}",
+        ]
+    else:
+        personal_info = [
+            f"Name: {data['name']}",
+            f"Email: {data['email']}",
+            f"Phone 1: {data['phone_1']}",
+            f"Phone 2: {data['phone_2'] or 'Not provided'}",
+            f"Address: {data['address'] or 'Not provided'}",
+            f"City: {data['city'] or 'Not provided'}",
+            f"LinkedIn: {data['linkedin'] or 'Not provided'}",
             f"Professional Experience in Years: {data['professional_experience_in_years']}",
             f"Highest Education: {data['highest_education']}",
         ]
@@ -490,7 +494,7 @@ def fill_template(data, output_path):
 
 
 def fill_coded_template(data, output_path):
-    fill_cv_template(data, output_path, template_type="coded")
+    fill_cv_template(data, output_path, template_type="code")
 
 
 def fill_name_template(data, output_path):

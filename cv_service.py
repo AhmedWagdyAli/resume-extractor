@@ -18,7 +18,6 @@ class CVService:
             .split(":")[0]
             .split(",")[0]
             .split("\n")[0]
-            .split(" ")[0]
         )
 
         if len(job_title) > 50:
