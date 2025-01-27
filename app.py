@@ -325,28 +325,38 @@ def add_section(doc, title, items, bullet_points=False):
 
 
 def add_personal_info(doc, data, coded=False):
-
-    if coded == "coded" or coded == "name":
+    personal_info = [
+        f"Name: {data['name']}",
+        f"Email: {data['email']}",
+        f"Phone 1: {data['phone_1']}",
+        f"Phone 2: {data['phone_2'] or 'Not provided'}",
+        f"Address: {data['address'] or 'Not provided'}",
+        f"City: {data['city'] or 'Not provided'}",
+        f"LinkedIn: {data['linkedin'] or 'Not provided'}",
+        f"Professional Experience in Years: {data['professional_experience_in_years']}",
+        f"Highest Education: {data['highest_education']}",
+    ]
+    if coded == "coded":
         personal_info = [
             f"Name: {'**'}",
             f"Email: {'**@gmail.com'}",
             f"Phone 1: {'****'}",
-            f"Phone 2: {data['phone_2'] or 'Not provided'}",
+            f"Phone 2: {'Not provided'}",
             f"Address: {data['address'] or 'Not provided'}",
             f"City: {data['city'] or 'Not provided'}",
             f"LinkedIn: {'**@linkedin.com' or 'Not provided'}",
             f"Professional Experience in Years: {data['professional_experience_in_years']}",
             f"Highest Education: {data['highest_education']}",
         ]
-    else:
+    elif coded == "name":
         personal_info = [
             f"Name: {data['name']}",
-            f"Email: {data['email']}",
-            f"Phone 1: {data['phone_1']}",
-            f"Phone 2: {data['phone_2'] or 'Not provided'}",
+            f"Email: {'**@gmail.com'}",
+            f"Phone 1: {'****'}",
+            f"Phone 2: {'Not provided'}",
             f"Address: {data['address'] or 'Not provided'}",
             f"City: {data['city'] or 'Not provided'}",
-            f"LinkedIn: {data['linkedin'] or 'Not provided'}",
+            f"LinkedIn: {'**@linkedin.com' or 'Not provided'}",
             f"Professional Experience in Years: {data['professional_experience_in_years']}",
             f"Highest Education: {data['highest_education']}",
         ]
