@@ -410,7 +410,114 @@ def format_education(education_list):
     return "\n\n".join(formatted_education)
 
 
-def replace_placeholders(doc, data):
+def replace_placeholders(doc, data, template_type):
+    """Replace placeholders in a Word document."""
+
+    def add_personal_info(data, template_type):
+        """Generate personal info string dynamically based on template type."""
+        if template_type == "code":
+            return "\n".join(
+                [
+                    f"Name: {'**'}",
+                    f"Email: {'**@gmail.com'}",
+                    f"Phone 1: {'****'}",
+                    f"Phone 2: {'Not provided'}",
+                    f"Address: {data.get('address', 'Not provided')}",
+                    f"City: {data.get('city', 'Not provided')}",
+                    f"LinkedIn: {'**@linkedin.com'}",
+                    f"Professional Experience in Years: {data.get('professional_experience_in_years', 'Not provided')}",
+                    f"Highest Education: {data.get('highest_education', 'Not provided')}",
+                ]
+            )
+        elif template_type == "name":
+            return "\n".join(
+                [
+                    f"Name: {data.get('name', 'Not provided')}",
+                    f"Email: {'**@gmail.com'}",
+                    f"Phone 1: {'****'}",
+                    f"Phone 2: {'Not provided'}",
+                    f"Address: {data.get('address', 'Not provided')}",
+                    f"City: {data.get('city', 'Not provided')}",
+                    f"LinkedIn: {'**@linkedin.com'}",
+                    f"Professional Experience in Years: {data.get('professional_experience_in_years', 'Not provided')}",
+                    f"Highest Education: {data.get('highest_education', 'Not provided')}",
+                ]
+            )
+        else:  # Normal template
+            return "\n".join(
+                [
+                    f"Name: {data.get('name', 'Not provided')}",
+                    f"Email: {data.get('email', 'Not provided')}",
+                    f"Phone 1: {data.get('phone_1', 'Not provided')}",
+                    f"Phone 2: {data.get('phone_2', 'Not provided')}",
+                    f"Address: {data.get('address', 'Not provided')}",
+                    f"City: {data.get('city', 'Not provided')}",
+                    f"LinkedIn: {data.get('linkedin', 'Not provided')}",
+                    f"Professional Experience in Years: {data.get('professional_experience_in_years', 'Not provided')}",
+                    f"Highest Education: {data.get('highest_education', 'Not provided')}",
+                ]
+            )
+
+    def convert_value(key, value):
+        """Convert individual key-value pairs based on template type."""
+        if key == "professional_experience" and isinstance(value, list):
+            return format_experience(value)  # Already formatted by format_experience
+        elif key == "Skills" and isinstance(value, str):
+            return format_skills(value)  # Already formatted by format_skills
+        elif key == "education" and isinstance(value, list):
+            return format_education(value)  # Already formatted by format_education
+        elif key == "certificates" and isinstance(value, list):
+            return "\n".join(cert["name"] for cert in value)
+        # Handle name, email, phone_1, and phone_2 with `template_type` logic
+        if key in ["name", "email", "phone_1", "phone_2"]:
+            if template_type == "code":
+                if key == "name":
+                    return "**"
+                elif key == "email":
+                    return "**@gmail.com"
+                elif key in ["phone_1", "phone_2"]:
+                    return "****" if key == "phone_1" else "Not provided"
+            elif template_type == "name":
+                if key == "name":
+                    return data.get("name", "Not provided")
+                elif key == "email":
+                    return "**@gmail.com"
+                elif key in ["phone_1", "phone_2"]:
+                    return "****" if key == "phone_1" else "Not provided"
+        # Fallback for other keys
+        return str(value) if value is not None else "Not provided"
+
+    # Replace placeholders in paragraphs
+    for paragraph in doc.paragraphs:
+        for key, value in data.items():
+            placeholder = f"{{{{{key}}}}}"  # Dynamic placeholder
+            if placeholder in paragraph.text:
+                # Replace individual placeholders
+                paragraph.text = paragraph.text.replace(
+                    placeholder, convert_value(key, value)
+                )
+
+    # Replace placeholders in tables
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for key, value in data.items():
+                    placeholder = f"{{{{{key}}}}}"  # Dynamic placeholder
+                    if placeholder in cell.text:
+                        cell.text = cell.text.replace(
+                            placeholder, convert_value(key, value)
+                        )
+
+    # Add combined `personal_info` to the document
+    combined_personal_info = add_personal_info(data, template_type)
+    for paragraph in doc.paragraphs:
+        if "{{personal_info}}" in paragraph.text:
+            paragraph.text = paragraph.text.replace(
+                "{{personal_info}}", combined_personal_info
+            )
+
+
+""" def replace_placeholders(doc, data):
     def convert_value(key, value):
         # Skip reprocessing for specific keys
         if key == "professional_experience" and isinstance(value, list):
@@ -466,16 +573,17 @@ try:
     print(f"Document created: {output_path}")
 except Exception as e:
     print(f"Error filling the template: {e}")
+"""
 
 
-def fill_cv_template(data, output_path, template_type="normal"):
+def fill_cv_template(data, output_path, template_type):
     try:
         # Load the template document
         template_path = os.path.join(app.root_path, "template.docx")
         doc = Document(template_path)
 
         # Replace placeholders with actual data
-        replace_placeholders(doc, data)
+        replace_placeholders(doc, data, template_type)
 
         # Create the output directory if it doesn't exist
         output_dir = os.path.dirname(output_path)
