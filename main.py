@@ -1,52 +1,31 @@
-from pdfminer.high_level import extract_text
-from json_helper import InputData as input
-from cv_processor import CVProcessor
 from docx import Document
-import json
+import random
+import string
 
 
-def extract_text_from_pdf(pdf_path):
-    return extract_text(pdf_path)
-
-
-text = extract_text_from_pdf(r"./cv.pdf")
-
-llm = input.llm()
-
-data = llm.invoke(input.input_data(text))
-try:
-    data = json.loads(data)
-except json.JSONDecodeError:
-    print("Error: Data is not valid JSON.")
-    data = {}
-
-
-def add_section(doc, title, items, bullet_points=False):
-    doc.add_heading(title, level=1)
-    if isinstance(items, list):
+def add_section(doc, heading, items, bullet_points=False):
+    doc.add_heading(heading, level=1)
+    if bullet_points:
         for item in items:
-            if isinstance(item, dict):
-                # Add each key-value pair from the dictionary as a paragraph
-                for key, value in item.items():
-                    doc.add_paragraph(f"{key}: {value}")
-                doc.add_paragraph()  # Add a blank line between items for clarity
-            else:
-                doc.add_paragraph(item, style="List Bullet" if bullet_points else None)
-    elif isinstance(items, dict):
-        for key, value in items.items():
-            print("here")
-            doc.add_paragraph(f"{key}: {value}")
+            doc.add_paragraph(item, style="ListBullet")
     else:
-        print("there")
-        doc.add_paragraph(items)
+        for item in items:
+            doc.add_paragraph(item)
 
 
-def fill_template(data, output_path):
-    try:
-        # Adding sections to the document
-        # 1. Personal Information
-        doc = Document()
-        doc.add_heading("Personal Information", level=1)
+def add_personal_info(doc, data, coded):
+    if coded == "coded" | coded == "name":
+        personal_info = [
+            f"Name: {''.join(random.choices(string.ascii_uppercase + string.digits, k=10))}",
+            f"Email: {'**@gmail.com'}",
+            f"Phone 1: {'****'}",
+            f"Address: {data['address'] or 'Not provided'}",
+            f"City: {data['city'] or 'Not provided'}",
+            f"LinkedIn: {'**@linkedin.com' or 'Not provided'}",
+            f"Professional Experience in Years: {data['professional_experience_in_years']}",
+            f"Highest Education: {data['highest_education']}",
+        ]
+    else:
         personal_info = [
             f"Name: {data['name']}",
             f"Email: {data['email']}",
@@ -57,28 +36,31 @@ def fill_template(data, output_path):
             f"LinkedIn: {data['linkedin'] or 'Not provided'}",
             f"Professional Experience in Years: {data['professional_experience_in_years']}",
             f"Highest Education: {data['highest_education']}",
-            f"Fresher: {'Yes' if data['is_fresher'] == 'yes' else 'No'}",
-            f"Student: {'Yes' if data['is_student'] == 'yes' else 'No'}",
-            f"Applied for Profile: {data['applied_for_profile'] or 'Not provided'}",
         ]
-        for info in personal_info:
-            doc.add_paragraph(info)
+    for info in personal_info:
+        doc.add_paragraph(info)
 
-        # 2. Skills (added as bullet points)
+
+def fill_template_common(data, output_path, coded=False):
+    try:
+        doc = Document()
+        add_personal_info(doc, data, coded=coded)
         add_section(doc, "Skills", data["skills"], bullet_points=True)
-
-        # 3. Education
         add_section(doc, "Education", data["education"])
-
-        # 4. Professional Experience
         add_section(doc, "Professional Experience", data["professional_experience"])
-
-        # Save the document
         doc.save(output_path)
         print(f"Document created: {output_path}")
     except Exception as e:
         print(f"Error filling the template: {e}")
 
 
-# Call fill_template directly
-fill_template(data, "output.docx")
+def fill_template(data, output_path):
+    fill_template_common(data, output_path, coded="normal")
+
+
+def fill_coded_template(data, output_path):
+    fill_template_common(data, output_path, coded="coded")
+
+
+def fill_name_template(data, output_path):
+    fill_template_common(data, output_path, coded="name")

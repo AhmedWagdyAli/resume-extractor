@@ -138,20 +138,29 @@ def upload_cv():
     # projects = extract_projects(text)
     unique_filename = f"document_{random.randint(1000, 9999)}.docx"
     path = os.path.join(app.root_path, "output", unique_filename)
+    path_of_coded_cv = os.path.join(app.root_path, "output", f"coded_{unique_filename}")
+    path_of_named_cv = os.path.join(app.root_path, "output", f"name_{unique_filename}")
 
     try:
         data = json.loads(data)
         data["certificates"] = certificates
         # data["projects"] = projects
         data["path_of_cv"] = path
+        data["path_of_coded_cv"] = path_of_coded_cv
+        data["path_of_named_cv"] = path_of_named_cv
 
     except json.JSONDecodeError:
         print("Error: Data is not valid JSON.")
     service = CVService(db)
     id = service.save_cv(data)
     # Generate a unique filename for the document
-    fill_template(data, unique_filename)
-    # fill_template(data, os.path.join("document.docx"))
+    fill_template(data, os.path.join(app.config["OUTPUT_FOLDER"], unique_filename))
+    fill_coded_template(
+        data, os.path.join(app.config["OUTPUT_FOLDER"], f"coded_{unique_filename}")
+    )
+    fill_name_template(
+        data, os.path.join(app.config["OUTPUT_FOLDER"], f"name_{unique_filename}")
+    )
     return data
     """  # Send the file
     # return send_file(output_path, as_attachment=True)
@@ -168,19 +177,23 @@ def generate_cv_form():
 
 @app.route("/generate_cv", methods=["POST"])
 def get_cv_data():
-    # Query the CV table by job_title
     try:
-        # Extract job title from the form data
         job_title = request.form.get("job_title")
         company = request.form.get("company")
         min_experience = request.form.get("years_of_experience")
         skill = request.form.get("skill")
+        format = request.form.get("format")
 
-        # Check if all inputs are empty
+        # Validate format
+        valid_formats = ["normal", "code", "named"]
+        if format not in valid_formats:
+            return jsonify({"error": "Invalid format specified"}), 400
+
+        # Ensure at least one filter is provided
         if not job_title and not company and not min_experience and not skill:
             return jsonify({"error": "At least one filter is required"}), 400
 
-        # Query CV data
+        # Build query
         query = (
             CV.query.join(Experiences).join(Skills).filter(CV.path_of_cv.isnot(None))
         )
@@ -191,32 +204,55 @@ def get_cv_data():
         if company:
             query = query.filter(Experiences.organisation_name.ilike(f"%{company}%"))
 
-        if min_experience is not None:
-            query = query.filter(CV.years_of_experience >= min_experience)
+        if min_experience:
+            try:
+                min_experience = int(min_experience)
+                query = query.filter(CV.years_of_experience >= min_experience)
+            except ValueError:
+                return jsonify({"error": "Invalid value for years_of_experience"}), 400
 
         if skill:
-            query = query.filter(Skills.name.ilike(f"%{skill}%"))
+            skill_list = [s.strip() for s in skill.split(",")]
+            skill_filters = [Skills.name.ilike(f"%{s}%") for s in skill_list]
+            query = query.filter(or_(*skill_filters))
 
+        # Fetch results
         cvs = query.all()
 
         if not cvs:
             return jsonify({"error": "No CVs found with the given criteria"}), 404
 
-        # Filter valid file paths
-        valid_files = [cv.path_of_cv for cv in cvs if os.path.isfile(cv.path_of_cv)]
+        # Select files based on format
+        if format == "normal":
+            valid_files = [
+                cv.path_of_cv
+                for cv in cvs
+                if cv.path_of_cv and os.path.isfile(cv.path_of_cv)
+            ]
+        elif format == "code":
+            valid_files = [
+                cv.path_of_coded_cv
+                for cv in cvs
+                if cv.path_of_coded_cv and os.path.isfile(cv.path_of_coded_cv)
+            ]
+        else:  # format == "named"
+            valid_files = [
+                cv.path_of_named_cv
+                for cv in cvs
+                if cv.path_of_named_cv and os.path.isfile(cv.path_of_named_cv)
+            ]
 
         if not valid_files:
             return jsonify({"error": "No valid CV files found on the server"}), 404
 
-        # Create an in-memory ZIP file
+        # Create ZIP file
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
             for file_path in valid_files:
-                # Add files to the ZIP archive
                 zip_file.write(file_path, os.path.basename(file_path))
 
-        # Prepare the ZIP file for download
-        zip_buffer.seek(0)  # Move the cursor to the beginning of the buffer
+        # Send ZIP file for download
+        zip_buffer.seek(0)
         return send_file(
             zip_buffer,
             mimetype="application/zip",
@@ -225,6 +261,7 @@ def get_cv_data():
         )
 
     except Exception as e:
+        logging.error(f"An error occurred: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -287,12 +324,21 @@ def add_section(doc, title, items, bullet_points=False):
         doc.add_paragraph(items)
 
 
-def fill_template(data, output_path):
-    try:
-        # Adding sections to the document
-        # 1. Personal Information
-        doc = Document()
-        doc.add_heading("Personal Information", level=1)
+def add_personal_info(doc, data, coded=False):
+
+    if coded == "coded" or coded == "name":
+        personal_info = [
+            f"Name: {'**'}",
+            f"Email: {'**@gmail.com'}",
+            f"Phone 1: {'****'}",
+            f"Phone 2: {data['phone_2'] or 'Not provided'}",
+            f"Address: {data['address'] or 'Not provided'}",
+            f"City: {data['city'] or 'Not provided'}",
+            f"LinkedIn: {'**@linkedin.com' or 'Not provided'}",
+            f"Professional Experience in Years: {data['professional_experience_in_years']}",
+            f"Highest Education: {data['highest_education']}",
+        ]
+    else:
         personal_info = [
             f"Name: {data['name']}",
             f"Email: {data['email']}",
@@ -304,25 +350,141 @@ def fill_template(data, output_path):
             f"Professional Experience in Years: {data['professional_experience_in_years']}",
             f"Highest Education: {data['highest_education']}",
         ]
-        for info in personal_info:
-            doc.add_paragraph(info)
+    for info in personal_info:
+        doc.add_paragraph(info)
 
-        # 2. Skills (added as bullet points)
-        add_section(doc, "Skills", data["skills"], bullet_points=True)
 
-        # 3. Education
-        add_section(doc, "Education", data["education"])
+def format_experience(experience_list):
+    if not isinstance(experience_list, list):
+        return "N/A"
 
-        # 4. Professional Experience
-        add_section(doc, "Professional Experience", data["professional_experience"])
+    formatted_experience = []
+    for item in experience_list:
+        details = []
+        for key, value in item.items():
+            if value:  # Include only non-empty values
+                # Format the key-value pair in key: value format
+                details.append(f"{key}: {value}")
+        # Join details with a newline and ensure proper indentation for each item
+        formatted_experience.append("\n".join(details))
+    # Separate each experience entry with an additional newline for clarity
+    return "\n\n".join(formatted_experience)
+
+
+def format_skills(skills_text):
+    if not skills_text or not isinstance(skills_text, str):
+        return "N/A"
+    skills_list = [skill.strip() for skill in skills_text.split(",")]
+    # TODO: insert into database here
+    return "\n".join(f"• {skill}" for skill in skills_list if skill)
+
+
+def format_education(education_list):
+    if not isinstance(education_list, list):
+        return "N/A"
+
+    formatted_education = []
+    for item in education_list:
+        details = []
+        for key, value in item.items():
+            if value:  # Include only non-empty values
+                # Format the key-value pair in key: value format
+                details.append(f"{key}: {value}")
+        # Join details with a newline and ensure proper indentation for each item
+        formatted_education.append("\n".join(details))
+    # Separate each experience entry with an additional newline for clarity
+    return "\n\n".join(formatted_education)
+
+
+def replace_placeholders(doc, data):
+    def convert_value(key, value):
+        # Skip reprocessing for specific keys
+        if key == "professional_experience" and isinstance(value, list):
+            return format_experience(value)  # Already formatted by format_experience
+        elif key == "skills" and isinstance(value, str):
+            return format_skills(value)  # Already formatted by format_skills
+        elif key == "education" and isinstance(value, list):
+            return format_education(value)  # Already formatted by format_education
+        elif key == "certificates" and isinstance(value, list):
+            return "\n".join(cert["name"] for cert in value)
+        elif isinstance(value, dict):
+            # For other dictionaries, convert to key: value format
+            return "\n".join(f"{k}: {v}" for k, v in value.items())
+        elif isinstance(value, list):
+            # For generic lists, join each item as a string
+            return "\n".join(str(item) for item in value)
+        return str(value)  # For other data types, convert to string
+
+    for paragraph in doc.paragraphs:
+        for key, value in data.items():
+            placeholder = f"{{{{{key}}}}}"
+            # Check for placeholders and process accordingly
+            if placeholder in paragraph.text:
+                paragraph.text = paragraph.text.replace(
+                    placeholder, convert_value(key, value)
+                )
+
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for key, value in data.items():
+                    placeholder = f"{{{{{key}}}}}"
+                    if placeholder in cell.text:
+                        cell.text = cell.text.replace(
+                            placeholder, convert_value(key, value)
+                        )
+
+
+try:
+    # Load the template document
+    template_path = os.path.join(app.root_path, "template.docx")
+    doc = Document(template_path)
+
+    # Replace placeholders with actual data
+    replace_placeholders(doc, data)
+
+    # Create the output directory if it doesn't exist
+    output_dir = os.path.dirname(output_path)
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Save the document
+    doc.save(output_path)
+    print(f"Document created: {output_path}")
+except Exception as e:
+    print(f"Error filling the template: {e}")
+
+
+def fill_cv_template(data, output_path, template_type="normal"):
+    try:
+        # Load the template document
+        template_path = os.path.join(app.root_path, "template.docx")
+        doc = Document(template_path)
+
+        # Replace placeholders with actual data
+        replace_placeholders(doc, data)
+
+        # Create the output directory if it doesn't exist
+        output_dir = os.path.dirname(output_path)
+        os.makedirs(output_dir, exist_ok=True)
 
         # Save the document
-        upload_path = os.path.join(app.root_path, "output", output_path)
-
-        doc.save(upload_path)
+        doc.save(output_path)
         print(f"Document created: {output_path}")
     except Exception as e:
         print(f"Error filling the template: {e}")
+
+
+# Update the individual functions to use the refactored function
+def fill_template(data, output_path):
+    fill_cv_template(data, output_path, template_type="normal")
+
+
+def fill_coded_template(data, output_path):
+    fill_cv_template(data, output_path, template_type="coded")
+
+
+def fill_name_template(data, output_path):
+    fill_cv_template(data, output_path, template_type="name")
 
 
 def search_certificates(text):

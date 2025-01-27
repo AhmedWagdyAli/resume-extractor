@@ -58,6 +58,8 @@ class CVService:
         cv = CV(
             job_title=job_title,
             path_of_cv=parsed_data["path_of_cv"],
+            path_of_coded_cv=parsed_data["path_of_coded_cv"],
+            path_of_named_cv=parsed_data["path_of_named_cv"],
             years_of_experience=parsed_data["professional_experience_in_years"],
             phone=phone,
             email=email,

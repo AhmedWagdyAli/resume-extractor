@@ -61,3 +61,12 @@ output/document_9508.docx
 output/document_9528.docx
 output/document_9606.docx
 uploads/Profile_-_2024-11-14T133725.778.pdf
+__pycache__/app.cpython-312.pyc
+__pycache__/cv_service.cpython-312.pyc
+__pycache__/models.cpython-312.pyc
+__pycache__/unittest.cpython-312.pyc
+__pycache__/unittest.cpython-313.pyc
+migrations/versions/ac4622b8c17f_.py
+migrations/versions/ff1a53a108df_.py
+migrations/versions/__pycache__/ac4622b8c17f_.cpython-312.pyc
+migrations/versions/__pycache__/ff1a53a108df_.cpython-312.pyc

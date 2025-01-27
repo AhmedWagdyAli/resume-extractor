@@ -8,6 +8,8 @@ class CV(db.Model):
     job_title = db.Column(db.String(255), nullable=True)
     years_of_experience = db.Column(db.String(255), nullable=True)
     path_of_cv = db.Column(db.String(255), nullable=False)
+    path_of_coded_cv = db.Column(db.String(255), nullable=True)
+    path_of_named_cv = db.Column(db.String(255), nullable=True)
     phone = db.Column(db.String(255), nullable=True)
     email = db.Column(db.String(255), nullable=True)
     certificates = db.relationship(
