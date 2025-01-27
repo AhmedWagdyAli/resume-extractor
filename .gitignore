@@ -70,3 +70,4 @@ migrations/versions/ac4622b8c17f_.py
 migrations/versions/ff1a53a108df_.py
 migrations/versions/__pycache__/ac4622b8c17f_.cpython-312.pyc
 migrations/versions/__pycache__/ff1a53a108df_.cpython-312.pyc
+__pycache__/app.cpython-312.pyc
