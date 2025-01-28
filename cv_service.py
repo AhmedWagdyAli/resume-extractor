@@ -36,7 +36,8 @@ class CVService:
                 if "-" in duration:
                     start_date_str, end_date_str = duration.split("-")
                     start_date = parser.parse(start_date_str.strip())
-                    if end_date_str.strip().lower() in ["present", "today"]:
+                    print(end_date_str.strip().lower())
+                    if end_date_str.strip().lower() in ["present", "today", "now"]:
                         end_date = datetime.datetime.now()
                     else:
                         end_date = parser.parse(end_date_str.strip())

@@ -125,7 +125,6 @@ def upload_cv():
 
     # Save the uploaded file to the target path
     file.save(upload_path)
-
     # Process the CV
     text = ExtractText.extract_based_on_extension(upload_path)
     # text =extract_text_from_pdf(upload_path)
@@ -515,65 +514,6 @@ def replace_placeholders(doc, data, template_type):
             paragraph.text = paragraph.text.replace(
                 "{{personal_info}}", combined_personal_info
             )
-
-
-""" def replace_placeholders(doc, data):
-    def convert_value(key, value):
-        # Skip reprocessing for specific keys
-        if key == "professional_experience" and isinstance(value, list):
-            return format_experience(value)  # Already formatted by format_experience
-        elif key == "skills" and isinstance(value, str):
-            return format_skills(value)  # Already formatted by format_skills
-        elif key == "education" and isinstance(value, list):
-            return format_education(value)  # Already formatted by format_education
-        elif key == "certificates" and isinstance(value, list):
-            return "\n".join(cert["name"] for cert in value)
-        elif isinstance(value, dict):
-            # For other dictionaries, convert to key: value format
-            return "\n".join(f"{k}: {v}" for k, v in value.items())
-        elif isinstance(value, list):
-            # For generic lists, join each item as a string
-            return "\n".join(str(item) for item in value)
-        return str(value)  # For other data types, convert to string
-
-    for paragraph in doc.paragraphs:
-        for key, value in data.items():
-            placeholder = f"{{{{{key}}}}}"
-            # Check for placeholders and process accordingly
-            if placeholder in paragraph.text:
-                paragraph.text = paragraph.text.replace(
-                    placeholder, convert_value(key, value)
-                )
-
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                for key, value in data.items():
-                    placeholder = f"{{{{{key}}}}}"
-                    if placeholder in cell.text:
-                        cell.text = cell.text.replace(
-                            placeholder, convert_value(key, value)
-                        )
-
-
-try:
-    # Load the template document
-    template_path = os.path.join(app.root_path, "template.docx")
-    doc = Document(template_path)
-
-    # Replace placeholders with actual data
-    replace_placeholders(doc, data)
-
-    # Create the output directory if it doesn't exist
-    output_dir = os.path.dirname(output_path)
-    os.makedirs(output_dir, exist_ok=True)
-
-    # Save the document
-    doc.save(output_path)
-    print(f"Document created: {output_path}")
-except Exception as e:
-    print(f"Error filling the template: {e}")
-"""
 
 
 def fill_cv_template(data, output_path, template_type):
