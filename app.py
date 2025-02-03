@@ -7,6 +7,8 @@ from flask import (
     send_file,
     flash,
     jsonify,
+    flash,
+    session,
 )
 import json
 from werkzeug.utils import secure_filename
@@ -43,6 +45,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = (
     "mysql+mysqlconnector://cvflask_user:password@localhost:3306/cvflask"
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.secret_key = "supersecret"
 db.init_app(app)
 migrate = Migrate(app, db)
 # Ensure directories exist
@@ -160,6 +163,8 @@ def upload_cv():
     fill_name_template(
         data, os.path.join(app.config["OUTPUT_FOLDER"], f"name_{unique_filename}")
     )
+    flash("Operation successful!", "success")  # "success" is the category
+
     return render_template("generate.html")
 
     # return data
@@ -461,7 +466,8 @@ def replace_placeholders(doc, data, template_type):
         """Convert individual key-value pairs based on template type."""
         if key == "professional_experience" and isinstance(value, list):
             return format_experience(value)  # Already formatted by format_experience
-        elif key == "Skills" and isinstance(value, str):
+        elif key == "Skills":
+            print("skills accessed")
             return format_skills(value)  # Already formatted by format_skills
         elif key == "education" and isinstance(value, list):
             return format_education(value)  # Already formatted by format_education
