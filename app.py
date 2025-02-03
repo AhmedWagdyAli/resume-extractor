@@ -41,8 +41,11 @@ queue = Queue(connection=redis_conn)
 app.config["UPLOAD_FOLDER"] = "./uploads"
 app.config["TEMPLATE_FOLDER"] = "./templates"  # For Word templates
 app.config["OUTPUT_FOLDER"] = "./output"  # For filled CVs
-app.config["SQLALCHEMY_DATABASE_URI"] = (
+"""app.config["SQLALCHEMY_DATABASE_URI"] = (
     "mysql+mysqlconnector://cvflask_user:password@localhost:3306/cvflask"
+) """
+app.config["SQLALCHEMY_DATABASE_URI"] = (
+    "mysql+mysqlconnector://cvflask_user:yourpassword@localhost:3306/cvflask"
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.secret_key = "supersecret"
