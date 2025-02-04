@@ -1,25 +1,101 @@
 {% extends "base.html" %} {% block title %}The Cv{% endblock %} {% block content
-%} {{cv.id}} {{cv.job_title}}
+%}
+<link
+  rel="stylesheet"
+  href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+/>
+<style>
+  .container {
+    margin-top: 20px;
+  }
+  #searchInput {
+    margin-bottom: 20px;
+  }
+  table {
+    width: 100%;
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 8px;
+  }
+  th {
+    background-color: #f2f2f2;
+  }
+  tr:nth-child(even) {
+    background-color: #f9f9f9;
+  }
+</style>
 <div class="container">
-  <div class="col-md-6">
-    <h2>Skills:</h2>
-    <ul>
-      {% for skill in skills %}
-      <li>{{ skill }}</li>
+  <h2>CV List</h2>
+  <input
+    type="text"
+    id="searchInput"
+    class="form-control"
+    onkeyup="searchTable()"
+    placeholder="Search for job titles.."
+  />
+  <table id="cvTable" class="table table-bordered table-striped">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Job Title</th>
+        <th>File 1</th>
+        <th>File 2</th>
+        <th>File 3</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for cv in cvs %}
+      <tr>
+        <td>{{ cv.id }}</td>
+        <td>{{ cv.job_title }}</td>
+        <td>
+          <a
+            href="{{ url_for('download_file', filename=cv.path_of_cv.split('/')[-1]) }}"
+            download
+            >Download cv</a
+          >
+        </td>
+        <td>
+          <a
+            href="{{ url_for('download_file', filename=cv.path_of_coded_cv.split('/')[-1]) }}"
+            download
+            >Download coded cv</a
+          >
+        </td>
+        <td>
+          <a
+            href="{{ url_for('download_file', filename=cv.path_of_named_cv.split('/')[-1]) }}"
+            download
+            >Download name cv</a
+          >
+        </td>
+      </tr>
       {% endfor %}
-    </ul>
-  </div>
-  <div class="col-md-6">
-    <h2>experiences:</h2>
-    <ul>
-      {% for exp in experiences %}
-      <li>date:{{ exp.start_date }}</li>
-      <li>location:{{ exp.location }}</li>
-      <li>company:{{ exp.company }}</li>
-      <li>role:{{ exp.role }}</li>
-      <li>description:{{ exp.description }}</li>
-      {% endfor %}
-    </ul>
-  </div>
+    </tbody>
+  </table>
 </div>
+<script>
+  function searchTable() {
+    var input, filter, table, tr, td, i, txtValue;
+    input = document.getElementById("searchInput");
+    filter = input.value.toUpperCase();
+    table = document.getElementById("cvTable");
+    tr = table.getElementsByTagName("tr");
+    for (i = 1; i < tr.length; i++) {
+      tr[i].style.display = "none";
+      td = tr[i].getElementsByTagName("td");
+      for (var j = 0; j < td.length; j++) {
+        if (td[j]) {
+          txtValue = td[j].textContent || td[j].innerText;
+          if (txtValue.toUpperCase().indexOf(filter) > -1) {
+            tr[i].style.display = "";
+            break;
+          }
+        }
+      }
+    }
+  }
+</script>
 {% endblock %}

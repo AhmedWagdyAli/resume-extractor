@@ -9,6 +9,7 @@ from flask import (
     jsonify,
     flash,
     session,
+    send_from_directory,
 )
 import json
 from werkzeug.utils import secure_filename
@@ -41,12 +42,12 @@ queue = Queue(connection=redis_conn)
 app.config["UPLOAD_FOLDER"] = "./uploads"
 app.config["TEMPLATE_FOLDER"] = "./templates"  # For Word templates
 app.config["OUTPUT_FOLDER"] = "./output"  # For filled CVs
-"""app.config["SQLALCHEMY_DATABASE_URI"] = (
-    "mysql+mysqlconnector://cvflask_user:password@localhost:3306/cvflask"
-) """
 app.config["SQLALCHEMY_DATABASE_URI"] = (
-    "mysql+mysqlconnector://cvflask_user:yourpassword@localhost:3306/cvflask"
+    "mysql+mysqlconnector://cvflask_user:password@localhost:3306/cvflask"
 )
+""" app.config["SQLALCHEMY_DATABASE_URI"] = (
+    "mysql+mysqlconnector://cvflask_user:yourpassword@localhost:3306/cvflask"
+) """
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.secret_key = "supersecret"
 db.init_app(app)
@@ -59,6 +60,12 @@ os.makedirs(app.config["OUTPUT_FOLDER"], exist_ok=True)
 @app.route("/", methods=["get"])
 def get_cv_form():
     return render_template("/upload.html")
+
+
+@app.route("/cvs")
+def cv_list():
+    cvs = CV.query.all()
+    return render_template("result.html", cvs=cvs)
 
 
 def extract_text_from_pdf(pdf_path):
@@ -272,6 +279,18 @@ def get_cv_data():
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/download/<filename>")
+def download_file(filename):
+    """directory = os.path.join(app.root_path, "output")
+    print(directory, filename)"""
+    directory = os.path.join(app.root_path, "output")
+    file_path = os.path.join(directory, filename)
+    if os.path.exists(file_path):
+        return send_file(file_path, as_attachment=True)
+    else:
+        return jsonify({"error": "File not found"}), 404
 
 
 @app.route("/upload_cvs", methods=["POST"])
