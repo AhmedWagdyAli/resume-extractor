@@ -29,32 +29,33 @@ class CVService:
         )
         experience_years = int(experience_years_str[0]) if experience_years_str else 0
 
-        total_experience_months = 0
-        if experience_years < 1:
-            for experience in parsed_data["professional_experience"]:
-                duration = experience["duration"]
-                if "-" in duration:
-                    start_date_str, end_date_str = duration.split("-")
-                    start_date = parser.parse(start_date_str.strip())
-                    print(end_date_str.strip().lower())
-                    if end_date_str.strip().lower() in ["present", "today", "now"]:
-                        end_date = datetime.datetime.now()
+        """ 
+            total_experience_months = 0
+            if experience_years < 1:
+                for experience in parsed_data["professional_experience"]:
+                    duration = experience["duration"]
+                    if "-" in duration:
+                        start_date_str, end_date_str = duration.split("-")
+                        start_date = parser.parse(start_date_str.strip())
+                        print(end_date_str.strip().lower())
+                        if end_date_str.strip().lower() in ["present", "today", "now"]:
+                            end_date = datetime.datetime.now()
+                        else:
+                            end_date = parser.parse(end_date_str.strip())
+                        months = (end_date.year - start_date.year) * 12 + (
+                            end_date.month - start_date.month
+                        )
                     else:
-                        end_date = parser.parse(end_date_str.strip())
-                    months = (end_date.year - start_date.year) * 12 + (
-                        end_date.month - start_date.month
-                    )
-                else:
-                    years_months = re.findall(r"\d+", duration)
-                    months = (
-                        int(years_months[0]) * 12 + int(years_months[1])
-                        if len(years_months) == 2
-                        else 0
-                    )
-                total_experience_months += months
-            parsed_data["professional_experience_in_years"] = (
-                total_experience_months // 12
-            )
+                        years_months = re.findall(r"\d+", duration)
+                        months = (
+                            int(years_months[0]) * 12 + int(years_months[1])
+                            if len(years_months) == 2
+                            else 0
+                        )
+                    total_experience_months += months
+                parsed_data["professional_experience_in_years"] = (
+                    total_experience_months // 12
+                ) """
         cv = CV(
             job_title=job_title,
             path_of_cv=parsed_data["path_of_cv"],

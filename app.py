@@ -38,7 +38,7 @@ from extract_text import ExtractText
 app = Flask(__name__)
 
 redis_conn = Redis(host="localhost", port=6379)  # Connect to Redis
-queue = Queue(connection=redis_conn)
+queue = Queue(connection=redis_conn, default_timeout=600)
 app.config["UPLOAD_FOLDER"] = "./uploads"
 app.config["TEMPLATE_FOLDER"] = "./templates"  # For Word templates
 app.config["OUTPUT_FOLDER"] = "./output"  # For filled CVs
@@ -58,9 +58,36 @@ os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 os.makedirs(app.config["OUTPUT_FOLDER"], exist_ok=True)
 
 
+def create_app():
+    app = Flask(__name__)
+
+    redis_conn = Redis(host="localhost", port=6379)  # Connect to Redis
+    queue = Queue(connection=redis_conn, default_timeout=600)
+    app.config["UPLOAD_FOLDER"] = "./uploads"
+    app.config["TEMPLATE_FOLDER"] = "./templates"  # For Word templates
+    app.config["OUTPUT_FOLDER"] = "./output"  # For filled CVs
+    app.config["SQLALCHEMY_DATABASE_URI"] = (
+        "mysql+mysqlconnector://cvflask_user:password@localhost:3306/cvflask"
+    )
+
+    """     app.config["SQLALCHEMY_DATABASE_URI"] = (
+        "mysql+mysqlconnector://cvflask_user:yourpassword@localhost:3306/cvflask"
+    ) """
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.secret_key = "supersecret"
+    db.init_app(app)
+
+    return app  # Return the Flask app instance
+
+
 @app.route("/", methods=["get"])
 def get_cv_form():
     return render_template("/upload.html")
+
+
+@app.route("/upload_multiple", methods=["GET"])
+def upload_multiple_form():
+    return render_template("upload_multiple.html")
 
 
 @app.route("/cvs")
@@ -296,6 +323,8 @@ def download_file(filename):
 
 @app.route("/upload_cvs", methods=["POST"])
 def upload_cvs():
+    from tasks import Tasks  # Local import to avoid circular import
+
     if "files[]" not in request.files:
         return jsonify({"error": "No files provided"}), 400
 
@@ -308,7 +337,7 @@ def upload_cvs():
         file_content = file.read()  # Get the binary content
         file_name = file.filename
         # Enqueue the parsing task
-        job = queue.enqueue(parse_cv, file_name, file_content)
+        job = queue.enqueue(Tasks.parse_cv, file_name, file_content)
         jobs.append({"job_id": job.id, "filename": file_name})
 
     return jsonify({"message": "Files uploaded successfully.", "jobs": jobs}), 200

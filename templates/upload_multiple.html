@@ -1,0 +1,14 @@
+{% extends 'base.html' %} {% block content %}
+<h2>Upload Multiple CVs</h2>
+<form
+  method="post"
+  enctype="multipart/form-data"
+  action="{{ url_for('upload_cvs') }}"
+>
+  <div class="form-group">
+    <label for="cv_files">Select CV files:</label>
+    <input type="file" id="cv_files" name="files[]" multiple />
+  </div>
+  <button type="submit" class="btn btn-primary">Upload</button>
+</form>
+{% endblock %}

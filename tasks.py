@@ -1,15 +1,23 @@
 import io
 import os
+import json
 from werkzeug.utils import secure_filename
 from models import db
 from cv_service import CVService
-from extract_text import extract_based_on_extension
+from extract_text import ExtractText
+from cv_processor import CVProcessor
+from json_helper import InputData as input
+from flask import Flask
+from app import create_app
 
 
-class tasks:
+class Tasks:
 
     @staticmethod
     def parse_cv(file_name, file_content):
+        app = create_app()
+        # Create an instance of your Flask app
+
         # Secure the file name
         filename = secure_filename(file_name)
 
@@ -19,11 +27,13 @@ class tasks:
         with open(upload_path, "wb") as f:
             f.write(file_content)
 
-        parsed_data = extract_based_on_extension(upload_path)
+        text = ExtractText.extract_based_on_extension(upload_path)
 
-        if not parsed_data:
+        if not text:
             raise Exception("Error processing CV.")
+        llm = input.llm()
 
+        data = llm.invoke(input.input_data(text))
         # Define the output directory for the filled CV
         output_dir = "output"
         if not os.path.exists(output_dir):
@@ -31,19 +41,31 @@ class tasks:
 
         # Define the output path
         output_path = os.path.join(output_dir, f"filled_{filename}.docx")
-
+        path_of_coded_cv = os.path.join(output_dir, f"coded_{filename}.docx")
+        path_of_named_cv = os.path.join(output_dir, f"name_{filename}.docx")
         # Fill the template with parsed data
-        processor.fill_template(
-            parsed_data, template_path="template.docx", output_path=output_path
-        )
+        try:
+            data = json.loads(data)
+            data["path_of_cv"] = output_path
+            data["path_of_coded_cv"] = path_of_coded_cv
+            data["path_of_named_cv"] = path_of_named_cv
+        except json.JSONDecodeError:
+            print("Error: Data is not valid JSON.")
+
+        processor = CVProcessor()
+        processor.fill_template(data, output_path)
+        processor.fill_coded_template(data, path_of_coded_cv)
+        processor.fill_name_template(data, path_of_named_cv)
 
         # Save parsed data to the database
-        service = CVService(db)
-        parsed_data["path_of_cv"] = output_path
-        service.save_cv(parsed_data)
+        with app.app_context():  # Ensure DB operations run within Flask's context
+
+            service = CVService(db)
+
+            service.save_cv(data)
 
         # Check if the output file was created
-        if not os.path.exists(output_path):
-            raise Exception("Error: Output file not found.")
+        """         if not os.path.exists(output_path):
+            raise Exception("Error: Output file not found.") """
 
         return {"status": "success", "output_path": output_path}
