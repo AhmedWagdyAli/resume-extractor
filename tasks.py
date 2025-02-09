@@ -1,4 +1,3 @@
-import io
 import os
 import json
 from werkzeug.utils import secure_filename
@@ -15,8 +14,7 @@ class Tasks:
 
     @staticmethod
     def parse_cv(file_name, file_content):
-        app = create_app()
-        # Create an instance of your Flask app
+        app = create_app()  # Create an instance of your Flask app
 
         # Secure the file name
         filename = secure_filename(file_name)
@@ -34,6 +32,13 @@ class Tasks:
         llm = input.llm()
 
         data = llm.invoke(input.input_data(text))
+
+        # Ensure data is a dictionary
+        try:
+            data = json.loads(data)
+        except json.JSONDecodeError:
+            raise Exception("Error: Data is not valid JSON.")
+
         # Define the output directory for the filled CV
         output_dir = "output"
         if not os.path.exists(output_dir):
@@ -43,29 +48,24 @@ class Tasks:
         output_path = os.path.join(output_dir, f"filled_{filename}.docx")
         path_of_coded_cv = os.path.join(output_dir, f"coded_{filename}.docx")
         path_of_named_cv = os.path.join(output_dir, f"name_{filename}.docx")
-        # Fill the template with parsed data
-        try:
-            data = json.loads(data)
-            data["path_of_cv"] = output_path
-            data["path_of_coded_cv"] = path_of_coded_cv
-            data["path_of_named_cv"] = path_of_named_cv
-        except json.JSONDecodeError:
-            print("Error: Data is not valid JSON.")
 
+        # Fill the template with parsed data
         processor = CVProcessor()
         processor.fill_template(data, output_path)
         processor.fill_coded_template(data, path_of_coded_cv)
         processor.fill_name_template(data, path_of_named_cv)
 
+        data["path_of_cv"] = output_path
+        data["path_of_coded_cv"] = path_of_coded_cv
+        data["path_of_named_cv"] = path_of_named_cv
+
         # Save parsed data to the database
         with app.app_context():  # Ensure DB operations run within Flask's context
-
             service = CVService(db)
-
             service.save_cv(data)
 
         # Check if the output file was created
-        """         if not os.path.exists(output_path):
-            raise Exception("Error: Output file not found.") """
+        if not os.path.exists(output_path):
+            raise Exception("Error: Output file not found.")
 
         return {"status": "success", "output_path": output_path}

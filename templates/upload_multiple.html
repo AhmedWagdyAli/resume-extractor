@@ -1,14 +1,39 @@
 {% extends 'base.html' %} {% block content %}
 <h2>Upload Multiple CVs</h2>
+<script>
+  function addInput() {
+    var newInput = document.createElement("input");
+    newInput.type = "file";
+    newInput.name = "files[]";
+    newInput.className = "form-control-file";
+    var formGroup = document.createElement("div");
+    formGroup.className = "form-group";
+    formGroup.appendChild(newInput);
+    var removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "btn btn-danger";
+    removeButton.innerText = "Remove";
+    removeButton.onclick = function () {
+      formGroup.remove();
+    };
+    formGroup.appendChild(removeButton);
+    document.getElementById("fileInputs").appendChild(formGroup);
+  }
+</script>
 <form
   method="post"
   enctype="multipart/form-data"
   action="{{ url_for('upload_cvs') }}"
 >
-  <div class="form-group">
-    <label for="cv_files">Select CV files:</label>
-    <input type="file" id="cv_files" name="files[]" multiple />
+  <div id="fileInputs">
+    <div class="form-group">
+      <label for="cv_files">Select CV files:</label>
+    </div>
   </div>
+  <button type="button" class="btn btn-secondary" onclick="addInput()">
+    Add another file
+  </button>
+
   <button type="submit" class="btn btn-primary">Upload</button>
 </form>
 {% endblock %}
