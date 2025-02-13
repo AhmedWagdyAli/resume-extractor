@@ -23,12 +23,6 @@ class CVService:
         if len(job_title) > 50:
             job_title = job_title[:50]
 
-        # Extract the first number from professional_experience_in_years
-        experience_years_str = re.findall(
-            r"\d+", str(parsed_data["professional_experience_in_years"])
-        )
-        experience_years = int(experience_years_str[0]) if experience_years_str else 0
-
         """ 
             total_experience_months = 0
             if experience_years < 1:
@@ -53,9 +47,10 @@ class CVService:
                             else 0
                         )
                     total_experience_months += months
-                parsed_data["professional_experience_in_years"] = (
-                    total_experience_months // 12
-                ) """
+                    parsed_data["professional_experience_in_years"] = (
+                        total_experience_months // 12
+                    ) 
+        """
         cv = CV(
             job_title=job_title,
             path_of_cv=parsed_data["path_of_cv"],

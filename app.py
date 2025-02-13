@@ -1,3 +1,4 @@
+import logging
 from flask import (
     Flask,
     request,
@@ -11,6 +12,7 @@ from flask import (
     session,
     send_from_directory,
 )
+import time
 import json
 from werkzeug.utils import secure_filename
 import os
@@ -34,6 +36,8 @@ from json_helper import InputData as input
 from docx import Document
 import re
 from extract_text import ExtractText
+from prompt import DeepSeekPrompt
+from deepseek_parse import DeepSeekInputData as DeepSeekInput
 
 app = Flask(__name__)
 
@@ -42,13 +46,13 @@ queue = Queue(connection=redis_conn, default_timeout=600)
 app.config["UPLOAD_FOLDER"] = "./uploads"
 app.config["TEMPLATE_FOLDER"] = "./templates"  # For Word templates
 app.config["OUTPUT_FOLDER"] = "./output"  # For filled CVs
-""" app.config["SQLALCHEMY_DATABASE_URI"] = (
-    "mysql+mysqlconnector://cvflask_user:password@localhost:3306/cvflask"
-) """
-
 app.config["SQLALCHEMY_DATABASE_URI"] = (
-    "mysql+mysqlconnector://cvflask_user:yourpassword@localhost:3306/cvflask"
+    "mysql+mysqlconnector://cvflask_user:password@localhost:3306/cvflask"
 )
+
+""" app.config["SQLALCHEMY_DATABASE_URI"] = (
+    "mysql+mysqlconnector://cvflask_user:yourpassword@localhost:3306/cvflask"
+) """
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.secret_key = "supersecret"
 db.init_app(app)
@@ -66,13 +70,13 @@ def create_app():
     app.config["UPLOAD_FOLDER"] = "./uploads"
     app.config["TEMPLATE_FOLDER"] = "./templates"  # For Word templates
     app.config["OUTPUT_FOLDER"] = "./output"  # For filled CVs
-    """     app.config["SQLALCHEMY_DATABASE_URI"] = (
+    app.config["SQLALCHEMY_DATABASE_URI"] = (
         "mysql+mysqlconnector://cvflask_user:password@localhost:3306/cvflask"
     )
-    """
-    app.config["SQLALCHEMY_DATABASE_URI"] = (
+
+    """     app.config["SQLALCHEMY_DATABASE_URI"] = (
         "mysql+mysqlconnector://cvflask_user:yourpassword@localhost:3306/cvflask"
-    )
+    ) """
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.secret_key = "supersecret"
     db.init_app(app)
@@ -169,12 +173,14 @@ def upload_cv():
     # Process the CV
     text = ExtractText.extract_based_on_extension(upload_path)
     # text =extract_text_from_pdf(upload_path)
+    deepSeek = DeepSeekInput()
+    data = deepSeek.invoke(text)
+    """    llm = input.llm()
 
-    llm = input.llm()
+    data = llm.invoke(input.input_data(text)) """
 
-    data = llm.invoke(input.input_data(text))
     # return data
-    certificates = search_certificates(text)
+    # certificates = search_certificates(text)
     # projects = extract_projects(text)
     unique_filename = f"document_{random.randint(1000, 9999)}.docx"
     path = os.path.join(app.root_path, "output", unique_filename)
@@ -182,17 +188,17 @@ def upload_cv():
     path_of_named_cv = os.path.join(app.root_path, "output", f"name_{unique_filename}")
 
     try:
-        data = json.loads(data)
-        data["certificates"] = certificates
+        # data = json.loads(data)
+        # data["certificates"] = certificates
         # data["projects"] = projects
         data["path_of_cv"] = path
         data["path_of_coded_cv"] = path_of_coded_cv
         data["path_of_named_cv"] = path_of_named_cv
-
+        print(data)
     except json.JSONDecodeError:
         print("Error: Data is not valid JSON.")
     service = CVService(db)
-    id = service.save_cv(data)
+    service.save_cv(data)
     # Generate a unique filename for the document
     fill_template(data, os.path.join(app.config["OUTPUT_FOLDER"], unique_filename))
     fill_coded_template(
@@ -309,6 +315,113 @@ def get_cv_data():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/prompt", methods=["GET"])
+def generate_prompt_form():
+    return render_template("/prompt.html")
+
+
+@app.route("/prompt_cv", methods=["POST"])
+def get_prompt_data():
+    try:
+        text = request.form.get("prompt")
+        deepSeek = DeepSeekPrompt()
+        data = deepSeek.prompt(text)
+
+        if data is None:
+            return jsonify({"error": "No JSON data returned from the API"}), 400
+
+        job_title = data.get("job_title")
+        company = data.get("company")
+        min_experience = data.get("years_of_experience")
+        skill = data.get("skills")
+        format = data.get("format")
+        # Extract only numbers from years of experience
+        min_experience = re.findall(r"\d+", min_experience)
+        min_experience = int(min_experience[0]) if min_experience else 0
+        if None in [job_title, company, min_experience, skill, format]:
+            return jsonify({"error": "Missing expected keys in the JSON response"}), 400
+
+        valid_formats = ["normal", "code", "name"]
+        if format not in valid_formats:
+            return (
+                jsonify(
+                    {
+                        "error": "Invalid format specified. It must be one of normal, code, name"
+                    }
+                ),
+                400,
+            )
+
+        # Build query
+        query = (
+            CV.query.join(Experiences).join(Skills).filter(CV.path_of_cv.isnot(None))
+        )
+
+        if job_title:
+            query = query.filter(CV.job_title.ilike(f"%{job_title}%"))
+
+        if company:
+            query = query.filter(Experiences.organisation_name.ilike(f"%{company}%"))
+
+        if min_experience:
+            try:
+                min_experience = int(min_experience)
+                query = query.filter(CV.years_of_experience >= min_experience)
+            except ValueError:
+                return jsonify({"error": "Invalid value for years_of_experience"}), 400
+
+        if skill:
+            skill_filters = [Skills.name.ilike(f"%{s}%") for s in skill]
+            query = query.filter(or_(*skill_filters))
+
+        # Fetch results
+        cvs = query.all()
+
+        if not cvs:
+            return jsonify({"error": "No CVs found with the given criteria"}), 404
+        # Select files based on format
+        if format == "normal":
+            valid_files = [
+                cv.path_of_cv
+                for cv in cvs
+                if cv.path_of_cv and os.path.isfile(cv.path_of_cv)
+            ]
+        elif format == "code":
+            valid_files = [
+                cv.path_of_coded_cv
+                for cv in cvs
+                if cv.path_of_coded_cv and os.path.isfile(cv.path_of_coded_cv)
+            ]
+        else:  # format == "named"
+            valid_files = [
+                cv.path_of_named_cv
+                for cv in cvs
+                if cv.path_of_named_cv and os.path.isfile(cv.path_of_named_cv)
+            ]
+
+        if not valid_files:
+            return jsonify({"error": "No valid CV files found on the server"}), 404
+
+        # Create ZIP file
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for file_path in valid_files:
+                zip_file.write(file_path, os.path.basename(file_path))
+
+        # Send ZIP file for download
+        zip_buffer.seek(0)
+        return send_file(
+            zip_buffer,
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name="matching_cvs.zip",
+        )
+
+    except Exception as e:
+        logging.error(f"An error occurred: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/download/<filename>")
 def download_file(filename):
     """directory = os.path.join(app.root_path, "output")
@@ -321,7 +434,7 @@ def download_file(filename):
         return jsonify({"error": "File not found"}), 404
 
 
-@app.route("/upload_cvs", methods=["POST"])
+""" @app.route("/upload_cvs", methods=["POST"])
 def upload_cvs():
     from tasks import Tasks  # Local import to avoid circular import
 
@@ -341,6 +454,63 @@ def upload_cvs():
         jobs.append({"job_id": job.id, "filename": file_name})
 
     return jsonify({"message": "Files uploaded successfully.", "jobs": jobs}), 200
+"""
+
+
+@app.route("/upload_cvs", methods=["POST"])
+def upload_cvs():
+    from tasks import Tasks  # Local import to avoid circular import
+
+    if "files[]" not in request.files:
+        return jsonify({"error": "No files provided"}), 400
+
+    files = request.files.getlist("files[]")
+    if not files:
+        return jsonify({"error": "No files provided"}), 400
+
+    jobs = []
+    for file in files:
+        file_content = file.read()  # Get the binary content
+        file_name = file.filename
+        # Enqueue the parsing task
+        job = queue.enqueue(Tasks.parse_cv, file_name, file_content)
+        jobs.append(job)
+
+    # Wait for all jobs to complete
+    while any(job.get_status() not in ["finished", "failed"] for job in jobs):
+        time.sleep(1)  # Sleep for a short period to avoid busy waiting
+
+    # Check the status of all jobs
+    job_results = []
+    all_finished = all(job.get_status() == "finished" for job in jobs)
+
+    for job in jobs:
+        if job.get_status() == "finished":
+            job_results.append(
+                {"job_id": job.id, "filename": job.args[0], "status": "success"}
+            )
+        else:
+            job_results.append(
+                {"job_id": job.id, "filename": job.args[0], "status": "failed"}
+            )
+
+    if all_finished:
+        flash("All jobs completed successfully.", "success")
+    else:
+        flash("Some jobs failed to complete.", "warning")
+
+    return redirect(url_for("upload_multiple_form"))
+    """  for job in jobs:
+        if job.get_status() == "finished":
+            job_results.append(
+                {"job_id": job.id, "filename": job.args[0], "status": "success"}
+            )
+        else:
+            job_results.append(
+                {"job_id": job.id, "filename": job.args[0], "status": "failed"}
+            )
+
+    return jsonify({"message": "All jobs completed.", "jobs": job_results}), 200 """
 
 
 @app.route("/job_status/<job_id>", methods=["GET"])
@@ -348,18 +518,11 @@ def job_status(job_id):
     """
     Check the status of a specific job.
     """
-    from rq.job import Job
+    job = queue.fetch_job(job_id)
+    if job is None:
+        return jsonify({"error": "Job not found"}), 404
 
-    try:
-        job = Job.fetch(job_id, connection=redis_conn)
-        if job.is_finished:
-            return jsonify({"status": "completed", "result": job.result}), 200
-        elif job.is_failed:
-            return jsonify({"status": "failed"}), 500
-        else:
-            return jsonify({"status": "in progress"}), 202
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"job_id": job.id, "status": job.get_status()}), 200
 
 
 def add_section(doc, title, items, bullet_points=False):
@@ -523,15 +686,15 @@ def replace_placeholders(doc, data, template_type):
             return format_skills(value)  # Already formatted by format_skills
         elif key == "education" and isinstance(value, list):
             return format_education(value)  # Already formatted by format_education
-        elif key == "certificates" and isinstance(value, list):
+        elif key == "certifications" and isinstance(value, list):
             return "\n".join(cert["name"] for cert in value)
         # Handle name, email, phone_1, and phone_2 with `template_type` logic
         if key in ["name", "email", "phone_1", "phone_2"]:
             if template_type == "code":
                 if key == "name":
-                    return "**"
+                    return "*****"
                 elif key == "email":
-                    return "**@gmail.com"
+                    return "****@gmail.com"
                 elif key in ["phone_1", "phone_2"]:
                     return "****" if key == "phone_1" else "Not provided"
             elif template_type == "name":

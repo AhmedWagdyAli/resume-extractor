@@ -1,0 +1,40 @@
+{% extends "base.html" %} {% block title %}generate a CV{% endblock %} {% block
+content %}
+
+<form
+  method="POST"
+  action="/prompt_cv"
+  id="generateForm"
+  enctype="multipart/form-data"
+>
+  <div class="form-group">
+    <label for="job_title">Job Title</label>
+    <input
+      type="text"
+      name="prompt"
+      class="form-control"
+      placeholder="i am looking for a flutter developer with 4 years of experience with skills as .net and php in format code who worked in asgatech"
+    />
+  </div>
+
+  <button type="submit" class="btn btn-success">generate</button>
+</form>
+
+<div id="loadingSpinner" class="text-center mt-3" style="display: none">
+  <div class="spinner-border text-success" role="status">
+    <span class="sr-only">...</span>
+  </div>
+  <p>Uploading your CV, please wait...</p>
+</div>
+
+<script>
+  // Attach event listener to the form
+  document
+    .getElementById("generateForm ")
+    .addEventListener("submit", function (e) {
+      // Show the spinner
+      document.getElementById("loadingSpinner").style.display = "block";
+    });
+</script>
+
+{% endblock %}
