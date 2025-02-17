@@ -608,6 +608,7 @@ def format_skills(skills_text):
     if not skills_text or not isinstance(skills_text, str):
         return "N/A"
     skills_list = [skill.strip() for skill in skills_text.split(",")]
+    print(skills_list)
     # TODO: insert into database here
     return "\n".join(f"• {skill}" for skill in skills_list if skill)
 
@@ -681,8 +682,7 @@ def replace_placeholders(doc, data, template_type):
         """Convert individual key-value pairs based on template type."""
         if key == "professional_experience" and isinstance(value, list):
             return format_experience(value)  # Already formatted by format_experience
-        elif key == "Skills":
-            print("skills accessed")
+        elif key == "skills":
             return format_skills(value)  # Already formatted by format_skills
         elif key == "education" and isinstance(value, list):
             return format_education(value)  # Already formatted by format_education

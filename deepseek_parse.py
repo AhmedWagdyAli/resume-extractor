@@ -58,7 +58,7 @@ class DeepSeekInputData:
         self.url = "https://api.deepinfra.com/v1/openai/chat/completions"
         self.headers = {
             "Content-Type": "application/json",
-            "Authorization": "Bearer Xp0HxdNqIlrWfQhMRzEPchU5KDx1cZ0F",
+            "Authorization": "Bearer 8wJ9bPrW1FrPgyR0orndCIrpjujezzec",
         }
 
     def invoke(self, input_text):
