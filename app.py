@@ -38,10 +38,13 @@ import re
 from extract_text import ExtractText
 from prompt import DeepSeekPrompt
 from deepseek_parse import DeepSeekInputData as DeepSeekInput
+from chatgpt_service import ChatGPTInputData as ChatGPT
+from dotenv import load_dotenv
 
+load_dotenv()
 app = Flask(__name__)
 
-redis_conn = Redis(host="localhost", port=6379)  # Connect to Redis
+redis_conn = Redis(host="localhost", port=6379)  # Connect to Redis--
 queue = Queue(connection=redis_conn, default_timeout=600)
 app.config["UPLOAD_FOLDER"] = "./uploads"
 app.config["TEMPLATE_FOLDER"] = "./templates"  # For Word templates
@@ -57,6 +60,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.secret_key = "supersecret"
 db.init_app(app)
 migrate = Migrate(app, db)
+
 # Ensure directories exist
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 os.makedirs(app.config["OUTPUT_FOLDER"], exist_ok=True)
@@ -173,8 +177,12 @@ def upload_cv():
     # Process the CV
     text = ExtractText.extract_based_on_extension(upload_path)
     # text =extract_text_from_pdf(upload_path)
-    deepSeek = DeepSeekInput()
-    data = deepSeek.invoke(text)
+    """  deepSeek = DeepSeekInput()
+    data = deepSeek.invoke(text) """
+    chatgpt = ChatGPT()
+    data = chatgpt.invoke(input.input_data(text))
+    parsed_data = json.loads(data)
+    print(parsed_data)
     """    llm = input.llm()
 
     data = llm.invoke(input.input_data(text)) """
@@ -191,21 +199,24 @@ def upload_cv():
         # data = json.loads(data)
         # data["certificates"] = certificates
         # data["projects"] = projects
-        data["path_of_cv"] = path
-        data["path_of_coded_cv"] = path_of_coded_cv
-        data["path_of_named_cv"] = path_of_named_cv
-        print(data)
+        parsed_data["path_of_cv"] = path
+        parsed_data["path_of_coded_cv"] = path_of_coded_cv
+        parsed_data["path_of_named_cv"] = path_of_named_cv
     except json.JSONDecodeError:
         print("Error: Data is not valid JSON.")
     service = CVService(db)
-    service.save_cv(data)
+    service.save_cv(parsed_data)
     # Generate a unique filename for the document
-    fill_template(data, os.path.join(app.config["OUTPUT_FOLDER"], unique_filename))
+    fill_template(
+        parsed_data, os.path.join(app.config["OUTPUT_FOLDER"], unique_filename)
+    )
     fill_coded_template(
-        data, os.path.join(app.config["OUTPUT_FOLDER"], f"coded_{unique_filename}")
+        parsed_data,
+        os.path.join(app.config["OUTPUT_FOLDER"], f"coded_{unique_filename}"),
     )
     fill_name_template(
-        data, os.path.join(app.config["OUTPUT_FOLDER"], f"name_{unique_filename}")
+        parsed_data,
+        os.path.join(app.config["OUTPUT_FOLDER"], f"name_{unique_filename}"),
     )
     flash("Operation successful!", "success")  # "success" is the category
 
@@ -324,17 +335,27 @@ def generate_prompt_form():
 def get_prompt_data():
     try:
         text = request.form.get("prompt")
-        deepSeek = DeepSeekPrompt()
-        data = deepSeek.prompt(text)
+        chatGpt = ChatGPT()
+        data = chatGpt.prompt(text)
+        """         data = {
+            "job_title": "flutter",
+            "years_of_experience": "5 years",
+            "skills": ["php", "net"],
+            "company": "",
+            "format": "normal",
+        } """
+        parsed_data = json.loads(data)
 
         if data is None:
             return jsonify({"error": "No JSON data returned from the API"}), 400
 
-        job_title = data.get("job_title")
-        company = data.get("company")
-        min_experience = data.get("years_of_experience")
-        skill = data.get("skills")
-        format = data.get("format")
+        job_title = parsed_data.get("job_title")
+        job_title = job_title.split()[0] if job_title else None
+        company = parsed_data.get("company")
+        min_experience = parsed_data.get("years_of_experience")
+        skill = parsed_data.get("skills")
+        format = parsed_data.get("format")
+        print(job_title, company, min_experience, skill, format)
         # Extract only numbers from years of experience
         min_experience = re.findall(r"\d+", min_experience)
         min_experience = int(min_experience[0]) if min_experience else 0
@@ -373,6 +394,7 @@ def get_prompt_data():
         if skill:
             skill_filters = [Skills.name.ilike(f"%{s}%") for s in skill]
             query = query.filter(or_(*skill_filters))
+            # print(query)
 
         # Fetch results
         cvs = query.all()
@@ -605,10 +627,9 @@ def format_experience(experience_list):
 
 
 def format_skills(skills_text):
-    if not skills_text or not isinstance(skills_text, str):
+    if not skills_text or not isinstance(skills_text, list):
         return "N/A"
-    skills_list = [skill.strip() for skill in skills_text.split(",")]
-    print(skills_list)
+    skills_list = [skill.strip() for skill in skills_text]
     # TODO: insert into database here
     return "\n".join(f"• {skill}" for skill in skills_list if skill)
 
@@ -682,7 +703,7 @@ def replace_placeholders(doc, data, template_type):
         """Convert individual key-value pairs based on template type."""
         if key == "professional_experience" and isinstance(value, list):
             return format_experience(value)  # Already formatted by format_experience
-        elif key == "skills":
+        elif key == "skills" or key == "Skills":
             return format_skills(value)  # Already formatted by format_skills
         elif key == "education" and isinstance(value, list):
             return format_education(value)  # Already formatted by format_education
