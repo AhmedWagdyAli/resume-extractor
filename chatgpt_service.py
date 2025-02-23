@@ -73,7 +73,7 @@ class ChatGPTInputData:
             "messages": [
                 {
                     "role": "system",
-                    "content": f"Can you parse through this text for me and extract it into {json_content} and return the JSON under the 'json' key. if you encounter present in work experience, present should be today's date",
+                    "content": f"Can you parse through this text for me and extract it into {json_content} and return the JSON under the 'json' key. dont extract years of experience from the text, calculate the years of experience from the work experience duration. and if you encounter present it means today date",
                 },
                 {
                     "role": "user",
