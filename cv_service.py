@@ -1,4 +1,4 @@
-from models import Certificates, Skills, CV, Experiences
+from models import Education, Skills, CV, Experiences, Certificates, Projects
 import re
 from dateutil import parser
 import datetime
@@ -56,6 +56,7 @@ class CVService:
             path_of_cv=parsed_data["path_of_cv"],
             path_of_coded_cv=parsed_data["path_of_coded_cv"],
             path_of_named_cv=parsed_data["path_of_named_cv"],
+            path_of_original_cv=parsed_data["path_of_original_cv"],
             years_of_experience=parsed_data["professional_experience_in_years"],
             phone=phone,
             email=email,
@@ -83,8 +84,33 @@ class CVService:
                 organisation_name=experience.get("organisation_name"),
                 duration=experience.get("duration"),
                 profile=experience.get("profile"),
+                total_of_years_spent_at_job=experience.get(
+                    "total_of_years_spent_at_job"
+                ),
             )
             self.db.session.add(experience_entry)
+
+        """ for education in parsed_data["education"]:
+            if len(education.get("institute_name")) > 255:
+                education["institute_name"] = education.get("institute_name")[:255]
+            education_entry = Education(
+                cv_id=cv.id,
+                institute_name=education.get("institute_name"),
+                year_of_passing=education.get("year_of_passing"),
+                score=education.get("score"),
+            )
+            self.db.session.add(education_entry)
+        """
+        for project in parsed_data["projects"]:
+            if len(project.get("item")) > 255:
+                project["item"] = project.get("item")[:255]
+            project_entry = Projects(
+                cv_id=cv.id,
+                item=project.get("item"),
+                duration_of_project=project.get("duration_of_project"),
+                description=project.get("description")[:255],
+            )
+            self.db.session.add(project_entry)
         # Commit to the database
         self.db.session.commit()
         return cv.id

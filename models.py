@@ -10,6 +10,7 @@ class CV(db.Model):
     path_of_cv = db.Column(db.String(255), nullable=False)
     path_of_coded_cv = db.Column(db.String(255), nullable=True)
     path_of_named_cv = db.Column(db.String(255), nullable=True)
+    path_of_original_cv = db.Column(db.String(255), nullable=True)
     phone = db.Column(db.String(255), nullable=True)
     email = db.Column(db.String(255), nullable=True)
     certificates = db.relationship(
@@ -20,6 +21,9 @@ class CV(db.Model):
     )
     experiences = db.relationship(
         "Experiences", backref="cv", cascade="all, delete-orphan", lazy="dynamic"
+    )
+    projects = db.relationship(
+        "Projects", backref="cv", cascade="all, delete-orphan", lazy="dynamic"
     )
 
     def __repr__(self):
@@ -50,6 +54,7 @@ class Experiences(db.Model):
     organisation_name = db.Column(db.String(255), nullable=True)
     profile = db.Column(db.String(255), nullable=True)
     duration = db.Column(db.String(255), nullable=True)
+    total_of_years_spent_at_job = db.Column(db.String(255), nullable=True)
 
 
 class Education(db.Model):
@@ -58,5 +63,15 @@ class Education(db.Model):
         db.Integer, db.ForeignKey("cv.id", ondelete="CASCADE"), nullable=False
     )
     institute_name = db.Column(db.String(255), nullable=True)
-    year_of_passing = db.Column(db.Integer, nullable=True)
-    score = db.Column(db.Float, nullable=True)
+    year_of_passing = db.Column(db.String(255), nullable=True)
+    score = db.Column(db.String(255), nullable=True)
+
+
+class Projects(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    cv_id = db.Column(
+        db.Integer, db.ForeignKey("cv.id", ondelete="CASCADE"), nullable=False
+    )
+    item = db.Column(db.String(255), nullable=True)
+    duration_of_project = db.Column(db.String(255), nullable=True)
+    description = db.Column(db.String(255), nullable=True)

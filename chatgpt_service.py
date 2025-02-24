@@ -38,12 +38,15 @@ json_content = """{{
         {{
             "organisation_name": "",
             "duration": "",
-            "profile": ""
+            "profile": "",
+            "total_of_years_spent_at_job": ""
         }},
         {{
             "organisation_name": "",
             "duration": "",
-            "profile": ""
+            "profile": "",
+            "total_of_years_spent_at_job": ""
+
         }}
     ],
     "certifications": [
@@ -56,6 +59,18 @@ json_content = """{{
             "year": ""
         }}
     ],
+    "projects":[
+        {{
+            "item":"",
+            "duration_of_project":"" ,
+            "description":"",    
+        }},
+        {{
+            "item":"",
+            "duration_of_project":"" ,
+            "description":"",    
+        }}
+    ]
 }}"""
 
 

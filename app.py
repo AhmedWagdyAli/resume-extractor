@@ -190,7 +190,16 @@ def upload_cv():
     # return data
     # certificates = search_certificates(text)
     # projects = extract_projects(text)
-    unique_filename = f"document_{random.randint(1000, 9999)}.docx"
+    # unique_filename = f"document_{random.randint(1000, 9999)}.docx"
+    job_title = (
+        parsed_data["professional_experience"][0]["profile"]
+        .split(":")[0]
+        .split(",")[0]
+        .split("\n")[0]
+    )
+    initials = "".join([name[0] for name in parsed_data["name"].split() if name])
+    today_date = time.strftime("%Y%m%d")
+    unique_filename = f"{initials}_{today_date}_{job_title}.docx"
     path = os.path.join(app.root_path, "output", unique_filename)
     path_of_coded_cv = os.path.join(app.root_path, "output", f"coded_{unique_filename}")
     path_of_named_cv = os.path.join(app.root_path, "output", f"name_{unique_filename}")
@@ -202,6 +211,7 @@ def upload_cv():
         parsed_data["path_of_cv"] = path
         parsed_data["path_of_coded_cv"] = path_of_coded_cv
         parsed_data["path_of_named_cv"] = path_of_named_cv
+        parsed_data["path_of_original_cv"] = upload_path
     except json.JSONDecodeError:
         print("Error: Data is not valid JSON.")
     service = CVService(db)

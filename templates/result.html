@@ -54,14 +54,14 @@
           <a
             href="{{ url_for('download_file', filename=cv.path_of_cv.split('/')[-1]) }}"
             download
-            >Download cv</a
+            >export full cv</a
           >
         </td>
         <td>
           <a
             href="{{ url_for('download_file', filename=cv.path_of_coded_cv.split('/')[-1]) }}"
             download
-            >Download coded cv</a
+            >export blind cv</a
           >
         </td>
         <td>
@@ -70,6 +70,15 @@
             download
             >Download name cv</a
           >
+        </td>
+        <td>
+          {% if cv.path_of_original_cv %}
+          <a
+            href="{{ url_for('download_file', filename=cv.path_of_original_cv.split('/')[-1]) }}"
+            download
+            >export original cv</a
+          >
+          {% else %} No original CV available {% endif %}
         </td>
       </tr>
       {% endfor %}
