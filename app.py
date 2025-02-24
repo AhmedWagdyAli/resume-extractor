@@ -281,11 +281,11 @@ def get_cv_data():
                 query = query.filter(CV.years_of_experience >= min_experience)
             except ValueError:
                 return jsonify({"error": "Invalid value for years_of_experience"}), 400
-
         if skill:
             skill_list = [s.strip() for s in skill.split(",")]
-            skill_filters = [Skills.name.ilike(f"%{s}%") for s in skill_list]
-            query = query.filter(or_(*skill_filters))
+            if skill_list:
+                skill_filters = [Skills.name.ilike(f"%{s}%") for s in skill_list]
+                query = query.filter(or_(*skill_filters))
 
         # Fetch results
         cvs = query.all()
