@@ -49,13 +49,13 @@ queue = Queue(connection=redis_conn, default_timeout=600)
 app.config["UPLOAD_FOLDER"] = "./uploads"
 app.config["TEMPLATE_FOLDER"] = "./templates"  # For Word templates
 app.config["OUTPUT_FOLDER"] = "./output"  # For filled CVs
-""" app.config["SQLALCHEMY_DATABASE_URI"] = (
-    "mysql+mysqlconnector://cvflask_user:password@localhost:3306/cvflask"
-) """
-
 app.config["SQLALCHEMY_DATABASE_URI"] = (
-    "mysql+mysqlconnector://cvflask_user:yourpassword@localhost:3306/cvflask"
+    "mysql+mysqlconnector://cvflask_user:password@localhost:3306/cvflask"
 )
+
+""" app.config["SQLALCHEMY_DATABASE_URI"] = (
+    "mysql+mysqlconnector://cvflask_user:yourpassword@localhost:3306/cvflask"
+) """
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.secret_key = "supersecret"
 db.init_app(app)
@@ -80,7 +80,7 @@ def create_app():
 
     """     app.config["SQLALCHEMY_DATABASE_URI"] = (
         "mysql+mysqlconnector://cvflask_user:yourpassword@localhost:3306/cvflask"
-    ) """
+    )"""
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.secret_key = "supersecret"
     db.init_app(app)
@@ -171,7 +171,7 @@ def upload_cv():
 
     # Define the upload path (keep the original filename with its extension)
     upload_path = os.path.join(app.root_path, "uploads", filename)
-
+    print(upload_path)
     # Save the uploaded file to the target path
     file.save(upload_path)
     # Process the CV
@@ -454,16 +454,35 @@ def get_prompt_data():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/download/<filename>")
+""" @app.route("/download/<filename>")
 def download_file(filename):
-    """directory = os.path.join(app.root_path, "output")
-    print(directory, filename)"""
+   
     directory = os.path.join(app.root_path, "output")
     file_path = os.path.join(directory, filename)
     if os.path.exists(file_path):
         return send_file(file_path, as_attachment=True)
     else:
-        return jsonify({"error": "File not found"}), 404
+        return jsonify({"error": "File not found"}), 404 """
+
+
+@app.route("/download/<filename>")
+def download_file(filename):
+    # Check if the file exists in the output directory
+    output_directory = os.path.join(app.root_path, "output")
+    output_file_path = os.path.join(output_directory, filename)
+
+    if os.path.exists(output_file_path):
+        return send_file(output_file_path, as_attachment=True)
+
+    # Check if the file exists in the uploads directory
+    uploads_directory = os.path.join(app.root_path, "uploads")
+    uploads_file_path = os.path.join(uploads_directory, filename)
+
+    if os.path.exists(uploads_file_path):
+        return send_file(uploads_file_path, as_attachment=True)
+
+    # If the file is not found in either directory, return an error
+    return jsonify({"error": "File not found"}), 404
 
 
 """ @app.route("/upload_cvs", methods=["POST"])

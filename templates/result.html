@@ -74,7 +74,7 @@
         <td>
           {% if cv.path_of_original_cv %}
           <a
-            href="{{ url_for('download_file', filename=cv.path_of_original_cv.split('/')[-1]) }}"
+            href="{{ url_for('download_file', filename= cv.path_of_original_cv.split('/')[-1]) }}"
             download
             >export original cv</a
           >
