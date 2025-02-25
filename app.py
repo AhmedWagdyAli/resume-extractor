@@ -51,8 +51,7 @@ app.config["TEMPLATE_FOLDER"] = "./templates"  # For Word templates
 app.config["OUTPUT_FOLDER"] = "./output"  # For filled CVs
 """ app.config["SQLALCHEMY_DATABASE_URI"] = (
     "mysql+mysqlconnector://cvflask_user:password@localhost:3306/cvflask"
-)
- """
+) """
 app.config["SQLALCHEMY_DATABASE_URI"] = (
     "mysql+mysqlconnector://cvflask_user:yourpassword@localhost:3306/cvflask"
 )
@@ -635,8 +634,8 @@ def add_personal_info(doc, data, coded):
 
 
 def format_experience(experience_list):
-    if not isinstance(experience_list, list):
-        return "N/A"
+    if not isinstance(experience_list, list) or not experience_list:
+        return "Not provided"
 
     formatted_experience = []
     for item in experience_list:
