@@ -101,16 +101,17 @@ class CVService:
             )
             self.db.session.add(education_entry)
         """
-        for project in parsed_data["projects"]:
-            if len(project.get("item")) > 255:
-                project["item"] = project.get("item")[:255]
-            project_entry = Projects(
-                cv_id=cv.id,
-                item=project.get("item"),
-                duration_of_project=project.get("duration_of_project"),
-                description=project.get("description")[:255],
-            )
-            self.db.session.add(project_entry)
+        if parsed_data.get("projects"):
+            for project in parsed_data["projects"]:
+                if len(project.get("item")) > 255:
+                    project["item"] = project.get("item")[:255]
+                project_entry = Projects(
+                    cv_id=cv.id,
+                    item=project.get("item"),
+                    duration_of_project=project.get("duration_of_project"),
+                    description=project.get("description")[:255],
+                )
+                self.db.session.add(project_entry)
         # Commit to the database
         self.db.session.commit()
         return cv.id

@@ -83,12 +83,118 @@ class ChatGPTInputData:
         }
 
     def invoke(self, input_text):
+        """payload = {
+            "model": "gpt-4-turbo",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        f"Can you parse through this text for me and extract it into {json_content} and return the JSON under the 'json' key.  "
+                    ),
+                },
+
+                {
+                    "role": "system",
+                    "content": "Do not extract years of experience from the text, calculate the years of experience from the work experience duration. "
+                    "If you encounter 'present' or 'current' it means today's date. "
+                    "Here are some examples: "
+                    "IT Specialist /Namaa (June 2017 /October 2019)  2 years, 4 months. "
+                    "Software Developer /Group Banner (October 2019 /April 2020)  6 months. "
+                    "Backend Developer /Craft Code (April 2020 /October 2021)  1 year, 6 months. "
+                    "Full-Stack Web Developer /Freelancer (October 2021 /Present, February 2025) 3 years, 4 months."
+                    "now add all of that to calculate the professional_experience_in_years which should be 7 years, 8 months."
+                    "Moreover, make sure the professional_experience_in_years is calculated correctly. ",
+                },
+                {
+                    "role": "user",
+                    "content": input_text,
+                },
+            ],
+        }"""
+        """         payload = {
+            "model": "gpt-4-turbo",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        f"Can you parse through this text for me and extract it into {json_content} and return the JSON under the 'json' key."
+                    ),
+                },
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an AI that extracts and calculates total work experience accurately. "
+                        "ONLY use job start and end dates to compute experience. DO NOT use summary sections or the About section."
+                    ),
+                },
+                {
+                    "role": "system",
+                    "content": (
+                        "### **Strict Experience Calculation Instructions:**\n"
+                        "1. **Extract all jobs and their durations from the provided text.**\n"
+                        "   - Example: 'Senior Software Developer (Jul 2019 - Present)' → ✅ Include\n"
+                        "   - Example: 'I have 7+ years of experience' → ❌ Ignore\n"
+                        "\n"
+                        "2. **Handle 'Present' correctly.**\n"
+                        "   - If 'Present' appears, assume today's date (February 2025) for calculations.\n"
+                        "\n"
+                        "3. **Sum all extracted durations correctly.**\n"
+                        "   - Example Calculation:\n"
+                        "     - Assistant Trainer (Sep 2014 - Oct 2015) → 1 year, 1 month.\n"
+                        "     - .NET Developer (Jun 2016 - Dec 2016) → 6 months.\n"
+                        "     - .NET Developer (Mar 2017 - May 2017) → 3 months.\n"
+                        "     - Software Developer (Jun 2017 - Jun 2019) → 2 years.\n"
+                        "     - Senior Software Developer (Jul 2019 - Present) → 5 years, 8 months.\n"
+                        "   - **Final total: 9 years, 6 months.**\n"
+                        "\n"
+                        "4. **Return output as JSON under the key 'json'.**\n"
+                        "   - The key 'professional_experience_in_years' must match the correct total.\n"
+                        "\n"
+                        "**IMPORTANT: DOUBLE CHECK before finalizing. The total must be accurate.**"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": input_text,
+                },
+            ],
+        } """
         payload = {
             "model": "gpt-4-turbo",
             "messages": [
                 {
                     "role": "system",
-                    "content": f"Can you parse through this text for me and extract it into {json_content} and return the JSON under the 'json' key. dont extract years of experience from the text, calculate the years of experience from the work experience duration. and if you encounter present it means today date",
+                    "content": (
+                        f"Can you parse through this text for me and extract it into {json_content} and return the JSON under the 'json' key. "
+                        "Don't extract years of experience from the text, calculate the years of experience from the work experience duration. "
+                        "If you encounter 'present' or 'current' it means today's date (February 2025). "
+                        "Moreover, make sure the professional_experience_in_years is calculated correctly. "
+                        "Here are some examples: "
+                        "IT Specialist /Namaa (June 2017 /October 2019)  2 years, 4 months. "
+                        "Software Developer /Group Banner (October 2019 /April 2020)  6 months. "
+                        "Backend Developer /Craft Code (April 2020 /October 2021)  1 year, 6 months. "
+                        "Full-Stack Web Developer /Freelancer (October 2021 /Present, February 2025) 3 years, 4 months. "
+                        "Now add all of that to calculate the professional_experience_in_years which should be 7 years, 8 months. "
+                        "### **Strict Experience Calculation Instructions:**\n"
+                        "1. **Extract all jobs and their durations from the provided text.**\n"
+                        "   - Example: '.Net Web Developer (Jul 2017 - Jun 2018)' → ✅ Include\n"
+                        "   - Example: 'Back End Developer (Nov 2021 - Present)' → ✅ Include (Present = today)\n"
+                        "   - Example: '+2 years experience' → ❌ Ignore (Not based on job dates)\n"
+                        "\n"
+                        "2. **Handle 'Present' or 'current' correctly.**\n"
+                        "   - If 'Present' or 'current' appears, assume today's date (February 2025) for calculations.\n"
+                        "\n"
+                        "3. **Sum all extracted durations correctly.**\n"
+                        "   - Example Calculation:\n"
+                        "     - .Net Web Developer (Jul 2017 - Jun 2018) → 1 year.\n"
+                        "     - Back End Developer (Nov 2021 - Present) → 3 years, 4 months.\n"
+                        "   - **Final total: 4 years, 4 months.**\n"
+                        "\n"
+                        "4. **Return output as JSON under the key 'json'.**\n"
+                        "   - The key 'professional_experience_in_years' must match the correct total.\n"
+                        "\n"
+                        "**IMPORTANT: DOUBLE CHECK before finalizing. The total must be accurate.**"
+                    ),
                 },
                 {
                     "role": "user",

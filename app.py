@@ -182,7 +182,8 @@ def upload_cv():
     chatgpt = ChatGPT()
     data = chatgpt.invoke(input.input_data(text))
     parsed_data = json.loads(data)
-    print(parsed_data)
+
+    # return parsed_data["professional_experience_in_years"]
     """    llm = input.llm()
 
     data = llm.invoke(input.input_data(text)) """
@@ -256,7 +257,7 @@ def get_cv_data():
         format = request.form.get("format")
 
         # Validate format
-        valid_formats = ["normal", "code", "name"]
+        valid_formats = ["code", "name"]
         if format not in valid_formats:
             return jsonify({"error": "Invalid format specified"}), 400
 
@@ -344,6 +345,7 @@ def generate_prompt_form():
 @app.route("/prompt_cv", methods=["POST"])
 def get_prompt_data():
     try:
+        print("here")
         text = request.form.get("prompt")
         chatGpt = ChatGPT()
         data = chatGpt.prompt(text)
@@ -355,6 +357,7 @@ def get_prompt_data():
             "format": "normal",
         } """
         parsed_data = json.loads(data)
+        print(data)
 
         if data is None:
             return jsonify({"error": "No JSON data returned from the API"}), 400
@@ -371,17 +374,10 @@ def get_prompt_data():
         min_experience = int(min_experience[0]) if min_experience else 0
         if None in [job_title, company, min_experience, skill, format]:
             return jsonify({"error": "Missing expected keys in the JSON response"}), 400
-
-        valid_formats = ["normal", "code", "name"]
+        format = format.lower()
+        valid_formats = ["blind", "blind with name", "blind_with_name"]
         if format not in valid_formats:
-            return (
-                jsonify(
-                    {
-                        "error": "Invalid format specified. It must be one of normal, code, name"
-                    }
-                ),
-                400,
-            )
+            format = "normal"
 
         # Build query
         query = (
@@ -418,7 +414,7 @@ def get_prompt_data():
                 for cv in cvs
                 if cv.path_of_cv and os.path.isfile(cv.path_of_cv)
             ]
-        elif format == "code":
+        elif format == "blind":
             valid_files = [
                 cv.path_of_coded_cv
                 for cv in cvs
@@ -730,7 +726,11 @@ def replace_placeholders(doc, data, template_type):
 
     def convert_value(key, value):
         """Convert individual key-value pairs based on template type."""
-        if key == "professional_experience" and isinstance(value, list):
+        if (
+            key == "professional_experience"
+            or key == "projects"
+            and isinstance(value, list)
+        ):
             return format_experience(value)  # Already formatted by format_experience
         elif key == "skills" or key == "Skills":
             return format_skills(value)  # Already formatted by format_skills
