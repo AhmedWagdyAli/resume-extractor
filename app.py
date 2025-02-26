@@ -170,7 +170,6 @@ def upload_cv():
 
     # Define the upload path (keep the original filename with its extension)
     upload_path = os.path.join(app.root_path, "uploads", filename)
-    print(upload_path)
     # Save the uploaded file to the target path
     file.save(upload_path)
     # Process the CV
@@ -180,7 +179,13 @@ def upload_cv():
     data = deepSeek.invoke(text) """
     chatgpt = ChatGPT()
     data = chatgpt.invoke(input.input_data(text))
-    parsed_data = json.loads(data)
+    print(data)
+    try:
+        parsed_data = json.loads(data)
+        print(parsed_data)
+
+    except json.JSONDecodeError:
+        print("Error: Data is not valid JSON.")
 
     # return parsed_data["professional_experience_in_years"]
     """    llm = input.llm()
@@ -344,10 +349,11 @@ def generate_prompt_form():
 @app.route("/prompt_cv", methods=["POST"])
 def get_prompt_data():
     try:
-        print("here")
         text = request.form.get("prompt")
         chatGpt = ChatGPT()
         data = chatGpt.prompt(text)
+        print(data)
+
         """         data = {
             "job_title": "flutter",
             "years_of_experience": "5 years",
@@ -356,7 +362,6 @@ def get_prompt_data():
             "format": "normal",
         } """
         parsed_data = json.loads(data)
-        print(data)
 
         if data is None:
             return jsonify({"error": "No JSON data returned from the API"}), 400
@@ -367,7 +372,8 @@ def get_prompt_data():
         min_experience = parsed_data.get("years_of_experience")
         skill = parsed_data.get("skills")
         format = parsed_data.get("format")
-        print(job_title, company, min_experience, skill, format)
+        filter_by = parsed_data.get("not")
+        print(job_title, company, min_experience, skill, format, filter_by)
         # Extract only numbers from years of experience
         min_experience = re.findall(r"\d+", min_experience)
         min_experience = int(min_experience[0]) if min_experience else 0
@@ -400,7 +406,8 @@ def get_prompt_data():
             skill_filters = [Skills.name.ilike(f"%{s}%") for s in skill]
             query = query.filter(or_(*skill_filters))
             # print(query)
-
+        if filter_by:
+            query = query.filter(CV.job_title != filter_by)
         # Fetch results
         cvs = query.all()
 

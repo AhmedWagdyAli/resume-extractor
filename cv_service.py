@@ -12,13 +12,22 @@ class CVService:
         """Save parsed data into the database."""
         phone = parsed_data["phone_1"]
         email = parsed_data["email"]
+        job_title = parsed_data.get("job_title", "").lower()
 
-        job_title = (
-            parsed_data["professional_experience"][0]["profile"]
-            .split(":")[0]
-            .split(",")[0]
-            .split("\n")[0]
-        )
+        if not job_title:
+            job_title = "no job title"
+        """  if not job_title:
+            professional_experience = parsed_data.get("professional_experience", [])
+            if professional_experience:
+                profile = professional_experience[0].get("profile", "")
+                if not profile:
+                    job_title = "no job title"
+                else:
+                    job_title = (
+                        profile.split(":")[0].split(",")[0].split("\n")[0]
+                    ).lower()
+            else:
+                job_title = "no job title" """
 
         if len(job_title) > 50:
             job_title = job_title[:50]
@@ -84,9 +93,7 @@ class CVService:
                 organisation_name=experience.get("organisation_name"),
                 duration=experience.get("duration"),
                 profile=experience.get("profile"),
-                total_of_years_spent_at_job=experience.get(
-                    "total_of_years_spent_at_job"
-                ),
+                total_of_years_spent_at_job=experience.get("total_time_spent_at_job"),
             )
             self.db.session.add(experience_entry)
 

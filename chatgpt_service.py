@@ -21,7 +21,7 @@ json_content = """{{
     "is_fresher": "yes/no",
     "is_student": "yes/no",
     "skills": ["",""],
-    "applied_for_profile": "",
+    "job_title": "",
     "education": [
         {{
             "institute_name": "",
@@ -39,14 +39,13 @@ json_content = """{{
             "organisation_name": "",
             "duration": "",
             "profile": "",
-            "total_of_years_spent_at_job": ""
+            "total_time_spent_at_job":""
         }},
         {{
             "organisation_name": "",
             "duration": "",
             "profile": "",
-            "total_of_years_spent_at_job": ""
-
+            "total_time_spent_at_job":""
         }}
     ],
     "certifications": [
@@ -169,6 +168,7 @@ class ChatGPTInputData:
                         "Don't extract years of experience from the text, calculate the years of experience from the work experience duration. "
                         "If you encounter 'present' or 'current' it means today's date (February 2025). "
                         "Moreover, make sure the professional_experience_in_years is calculated correctly. "
+                        "calculate the difference between two dates of duration and add them to time_spent_at_job and remember current or present means today"
                         "Here are some examples: "
                         "IT Specialist /Namaa (June 2017 /October 2019)  2 years, 4 months. "
                         "Software Developer /Group Banner (October 2019 /April 2020)  6 months. "
@@ -190,7 +190,9 @@ class ChatGPTInputData:
                         "     - Back End Developer (Nov 2021 - Present) → 3 years, 4 months.\n"
                         "   - **Final total: 4 years, 4 months.**\n"
                         "\n"
-                        "4. **Return output as JSON under the key 'json'.**\n"
+                        "4. **Extract job_title from the 'About' section or the 'Contact' section if available.**\n"
+                        "\n"
+                        "5. **Return output as JSON under the key 'json'.**\n"
                         "   - The key 'professional_experience_in_years' must match the correct total.\n"
                         "\n"
                         "**IMPORTANT: DOUBLE CHECK before finalizing. The total must be accurate.**"
@@ -229,6 +231,7 @@ class ChatGPTInputData:
                 "company": "",
                 "format": "",
                 "certificates": [],
+                "not": "",
             }
         )
 
