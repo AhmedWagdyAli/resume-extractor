@@ -49,12 +49,12 @@ queue = Queue(connection=redis_conn, default_timeout=600)
 app.config["UPLOAD_FOLDER"] = "./uploads"
 app.config["TEMPLATE_FOLDER"] = "./templates"  # For Word templates
 app.config["OUTPUT_FOLDER"] = "./output"  # For filled CVs
-""" app.config["SQLALCHEMY_DATABASE_URI"] = (
-    "mysql+mysqlconnector://cvflask_user:password@localhost:3306/cvflask"
-) """
 app.config["SQLALCHEMY_DATABASE_URI"] = (
-    "mysql+mysqlconnector://cvflask_user:yourpassword@localhost:3306/cvflask"
+    "mysql+mysqlconnector://cvflask_user:password@localhost:3306/cvflask"
 )
+""" app.config["SQLALCHEMY_DATABASE_URI"] = (
+    "mysql+mysqlconnector://cvflask_user:yourpassword@localhost:3306/cvflask"
+) """
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.secret_key = "supersecret"
 db.init_app(app)
@@ -354,13 +354,6 @@ def get_prompt_data():
         data = chatGpt.prompt(text)
         print(data)
 
-        """         data = {
-            "job_title": "flutter",
-            "years_of_experience": "5 years",
-            "skills": ["php", "net"],
-            "company": "",
-            "format": "normal",
-        } """
         parsed_data = json.loads(data)
 
         if data is None:
@@ -437,19 +430,7 @@ def get_prompt_data():
             return jsonify({"error": "No valid CV files found on the server"}), 404
 
         # Create ZIP file
-        zip_buffer = BytesIO()
-        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-            for file_path in valid_files:
-                zip_file.write(file_path, os.path.basename(file_path))
-
-        # Send ZIP file for download
-        zip_buffer.seek(0)
-        return send_file(
-            zip_buffer,
-            mimetype="application/zip",
-            as_attachment=True,
-            download_name="matching_cvs.zip",
-        )
+        return render_template("result.html", cvs=cvs)
 
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}")
@@ -864,6 +845,86 @@ def extract_certificate_names(line):
 
     # Clean up and return matched certificates
     return [{"name": match.strip()} for match in matches if match.strip()]
+
+
+import zipfile
+from io import BytesIO
+
+
+# Add this route to your app.py
+@app.route("/download_zip", methods=["POST"])
+def download_zip():
+    try:
+        data = request.get_json()
+        selected_ids = data.get("ids", [])
+        file_type = data.get("file_type", "full")
+
+        if not selected_ids:
+            return jsonify({"error": "No CVs selected."}), 400
+
+        # Fetch the selected CVs from the database
+        cvs = CV.query.filter(CV.id.in_(selected_ids)).all()
+
+        if not cvs:
+            return jsonify({"error": "No CVs found with the given IDs."}), 404
+
+        # Create a ZIP file in memory
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for cv in cvs:
+                if file_type == "full" and cv.path_of_cv:
+                    file_path = cv.path_of_cv
+                elif file_type == "blind" and cv.path_of_coded_cv:
+                    file_path = cv.path_of_coded_cv
+                elif file_type == "named" and cv.path_of_named_cv:
+                    file_path = cv.path_of_named_cv
+                elif file_type == "original" and cv.path_of_original_cv:
+                    file_path = cv.path_of_original_cv
+                else:
+                    continue
+
+                if file_path and os.path.isfile(file_path):
+                    zip_file.write(file_path, os.path.basename(file_path))
+
+        # Send the ZIP file for download
+        zip_buffer.seek(0)
+        return send_file(
+            zip_buffer,
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name="cvs.zip",
+        )
+
+    except Exception as e:
+        logging.error(f"An error occurred: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/delete_selected", methods=["POST"])
+def delete_selected():
+    try:
+        data = request.get_json()
+        selected_ids = data.get("ids", [])
+
+        if not selected_ids:
+            return jsonify({"error": "No CVs selected."}), 400
+
+        # Fetch the selected CVs from the database
+        cvs = CV.query.filter(CV.id.in_(selected_ids)).all()
+
+        if not cvs:
+            return jsonify({"error": "No CVs found with the given IDs."}), 404
+
+        # Delete the selected CVs
+        for cv in cvs:
+            db.session.delete(cv)
+        db.session.commit()
+
+        return jsonify({"message": "Selected CVs deleted successfully."}), 200
+
+    except Exception as e:
+        logging.error(f"An error occurred: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

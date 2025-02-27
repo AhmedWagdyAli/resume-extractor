@@ -28,16 +28,42 @@
 </style>
 <div class="container">
   <h2>CV List</h2>
-  <input
-    type="text"
-    id="searchInput"
-    class="form-control"
-    onkeyup="searchTable()"
-    placeholder="Search for job titles.."
-  />
+  <form
+    method="POST"
+    action="/prompt_cv"
+    id="generateForm"
+    enctype="multipart/form-data"
+  >
+    <div class="form-group">
+      <label for="job_title">Search Prompt</label>
+      <input
+        type="text"
+        name="prompt"
+        class="form-control"
+        placeholder="i am looking for a flutter developer with 4 years of experience with skills as .net and php in format code who worked in asgatech"
+      />
+    </div>
+
+    <button type="submit" class="btn btn-success">Search</button>
+  </form>
+
+  <div class="btn-group">
+    <a href="/cvs" class="btn btn-primary">Show ALL</a>
+    <button id="downloadSelected" class="btn btn-primary">
+      Download Selected
+    </button>
+    <button id="deleteSelected" class="btn btn-danger">Delete Selected</button>
+    <select id="fileType" class="form-control">
+      <option value="full">Full CV</option>
+      <option value="blind">Blind CV</option>
+      <option value="named">Named CV</option>
+      <option value="original">Original CV</option>
+    </select>
+  </div>
   <table id="cvTable" class="table table-bordered table-striped">
     <thead>
       <tr>
+        <th><input type="checkbox" id="selectAll" /></th>
         <th>ID</th>
         <th>Job Title</th>
         <th>File 1</th>
@@ -48,6 +74,9 @@
     <tbody>
       {% for cv in cvs %}
       <tr>
+        <td>
+          <input type="checkbox" class="selectRow" data-id="{{ cv.id }}" />
+        </td>
         <td>{{ cv.id }}</td>
         <td>{{ cv.job_title }}</td>
         <td>
@@ -106,5 +135,80 @@
       }
     }
   }
+
+  document.getElementById("selectAll").addEventListener("change", function () {
+    var checkboxes = document.querySelectorAll(".selectRow");
+    for (var checkbox of checkboxes) {
+      checkbox.checked = this.checked;
+    }
+  });
+
+  document
+    .getElementById("downloadSelected")
+    .addEventListener("click", function () {
+      var selectedIds = [];
+      var checkboxes = document.querySelectorAll(".selectRow:checked");
+      for (var checkbox of checkboxes) {
+        selectedIds.push(checkbox.getAttribute("data-id"));
+      }
+      if (selectedIds.length > 0) {
+        var fileType = document.getElementById("fileType").value;
+        // Send the selected IDs and file type to the server to create a zip file
+        fetch("/download_zip", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": "{{ csrf_token }}", // Ensure you include the CSRF token
+          },
+          body: JSON.stringify({ ids: selectedIds, file_type: fileType }),
+        })
+          .then((response) => response.blob())
+          .then((blob) => {
+            var url = window.URL.createObjectURL(blob);
+            var a = document.createElement("a");
+            a.href = url;
+            a.download = "cvs.zip";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+          })
+          .catch((error) => console.error("Error:", error));
+      } else {
+        alert("No CVs selected.");
+      }
+    });
+
+  document
+    .getElementById("deleteSelected")
+    .addEventListener("click", function () {
+      var selectedIds = [];
+      var checkboxes = document.querySelectorAll(".selectRow:checked");
+      for (var checkbox of checkboxes) {
+        selectedIds.push(checkbox.getAttribute("data-id"));
+      }
+      if (selectedIds.length > 0) {
+        fetch("/delete_selected", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": "{{ csrf_token }}", // Ensure you include the CSRF token
+          },
+          body: JSON.stringify({ ids: selectedIds }),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.message) {
+              alert(data.message);
+              // Optionally, refresh the page or remove the deleted rows from the table
+              location.reload();
+            } else if (data.error) {
+              alert(data.error);
+            }
+          })
+          .catch((error) => console.error("Error:", error));
+      } else {
+        alert("No CVs selected.");
+      }
+    });
 </script>
 {% endblock %}
