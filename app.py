@@ -46,7 +46,7 @@ from flask_login import LoginManager
 load_dotenv()
 app = Flask(__name__)
 
-redis_conn = Redis(host="localhost", port=3780)  # Connect to Redis--
+redis_conn = Redis(host="localhost", port=6379)  # Connect to Redis--
 queue = Queue(connection=redis_conn, default_timeout=600)
 app.config["UPLOAD_FOLDER"] = "./uploads"
 app.config["TEMPLATE_FOLDER"] = "./templates"  # For Word templates
