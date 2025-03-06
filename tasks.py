@@ -8,6 +8,12 @@ from cv_processor import CVProcessor
 from json_helper import InputData as input
 from flask import Flask
 from app import create_app
+from chatgpt_service import ChatGPTInputData as ChatGPT
+import time
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
 
 
 class Tasks:
@@ -18,7 +24,7 @@ class Tasks:
 
         # Secure the file name
         filename = secure_filename(file_name)
-
+        logging.debug(f"Processing file: {filename}")
         # Define the upload path
         upload_path = os.path.join("uploads", filename)
 
@@ -29,13 +35,12 @@ class Tasks:
 
         if not text:
             raise Exception("Error processing CV.")
-        llm = input.llm()
+        chatgpt = ChatGPT()
+        data = chatgpt.invoke(input.input_data(text))
+        logging.debug(f"Data received from ChatGPT: {data}")
 
-        data = llm.invoke(input.input_data(text))
-
-        # Ensure data is a dictionary
         try:
-            data = json.loads(data)
+            parsed_data = json.loads(data)
         except json.JSONDecodeError:
             raise Exception("Error: Data is not valid JSON.")
 
@@ -45,28 +50,34 @@ class Tasks:
             os.makedirs(output_dir)
 
         # Define the output path
-        output_path = os.path.join(output_dir, f"filled_{filename}.docx")
-        path_of_coded_cv = os.path.join(output_dir, f"coded_{filename}.docx")
-        path_of_named_cv = os.path.join(output_dir, f"name_{filename}.docx")
+        initials = "".join([name[0] for name in parsed_data["name"].split() if name])
+        today_date = time.strftime("%Y%m%d")
+        unique_filename = f"{initials}_{today_date}.docx"
+        path = os.path.join(app.root_path, "output", unique_filename)
+        path_of_coded_cv = os.path.join(app.root_path, "output", f"B_{unique_filename}")
+        path_of_named_cv = os.path.join(app.root_path, "output", f"BN{unique_filename}")
+
+        logging.debug(f"Output paths: {path}, {path_of_coded_cv}, {path_of_named_cv}")
 
         # Fill the template with parsed data
         processor = CVProcessor()
-        processor.fill_template(data, output_path)
-        processor.fill_coded_template(data, path_of_coded_cv)
-        processor.fill_name_template(data, path_of_named_cv)
+        processor.fill_template(parsed_data, path)
+        processor.fill_coded_template(parsed_data, path_of_coded_cv)
+        processor.fill_name_template(parsed_data, path_of_named_cv)
 
-        data["path_of_cv"] = output_path
-        data["path_of_coded_cv"] = path_of_coded_cv
-        data["path_of_named_cv"] = path_of_named_cv
+        parsed_data["path_of_cv"] = path
+        parsed_data["path_of_coded_cv"] = path_of_coded_cv
+        parsed_data["path_of_named_cv"] = path_of_named_cv
+        parsed_data["path_of_original_cv"] = upload_path
 
         # Save parsed data to the database
         with app.app_context():  # Ensure DB operations run within Flask's context
             service = CVService(db)
-            service.save_cv(data)
+            service.save_cv(parsed_data)
 
         # Check if the output file was created
-        if not os.path.exists(output_path):
+        if not os.path.exists(path):
+            logging.error(f"Output file not found at path: {path}")
             raise Exception("Error: Output file not found.")
 
-        return {"status": "success", "output_path": output_path}
-
+        return {"status": "success", "output_path": path}

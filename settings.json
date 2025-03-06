@@ -1,0 +1,8 @@
+{
+    "configurations": {
+        "LLM_Model": "chatgpt",
+        "setting2": "no",
+        "setting3": "value3",
+        "setting1": null
+    }
+}

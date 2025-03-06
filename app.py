@@ -24,6 +24,7 @@ from models import (
     Certificates,
     Skills,
     Experiences,
+    User,
 )  # Import models from models.py
 from flask_migrate import Migrate
 from sqlalchemy import or_
@@ -40,11 +41,12 @@ from prompt import DeepSeekPrompt
 from deepseek_parse import DeepSeekInputData as DeepSeekInput
 from chatgpt_service import ChatGPTInputData as ChatGPT
 from dotenv import load_dotenv
+from flask_login import LoginManager
 
 load_dotenv()
 app = Flask(__name__)
 
-redis_conn = Redis(host="localhost", port=6379)  # Connect to Redis--
+redis_conn = Redis(host="localhost", port=3780)  # Connect to Redis--
 queue = Queue(connection=redis_conn, default_timeout=600)
 app.config["UPLOAD_FOLDER"] = "./uploads"
 app.config["TEMPLATE_FOLDER"] = "./templates"  # For Word templates
@@ -59,7 +61,9 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.secret_key = "supersecret"
 db.init_app(app)
 migrate = Migrate(app, db)
-
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "login"
 # Ensure directories exist
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 os.makedirs(app.config["OUTPUT_FOLDER"], exist_ok=True)
@@ -174,45 +178,25 @@ def upload_cv():
     file.save(upload_path)
     # Process the CV
     text = ExtractText.extract_based_on_extension(upload_path)
-    # text =extract_text_from_pdf(upload_path)
-    """  deepSeek = DeepSeekInput()
-    data = deepSeek.invoke(text) """
+
     chatgpt = ChatGPT()
-    data = chatgpt.invoke(input.input_data(text))
+    data = chatgpt.invoke(text)
     print(data)
     try:
         parsed_data = json.loads(data)
-        print(parsed_data)
 
     except json.JSONDecodeError:
         print("Error: Data is not valid JSON.")
 
-    # return parsed_data["professional_experience_in_years"]
-    """    llm = input.llm()
-
-    data = llm.invoke(input.input_data(text)) """
-
-    # return data
-    # certificates = search_certificates(text)
-    # projects = extract_projects(text)
-    # unique_filename = f"document_{random.randint(1000, 9999)}.docx"
-    job_title = (
-        parsed_data["professional_experience"][0]["profile"]
-        .split(":")[0]
-        .split(",")[0]
-        .split("\n")[0]
-    )
-    initials = "".join([name[0] for name in parsed_data["name"].split() if name])
+    job_title = parsed_data.get("job_title", "No job title")
+    # initials = "".join([name[0] for name in parsed_data.get("name") if name])
     today_date = time.strftime("%Y%m%d")
-    unique_filename = f"{initials}_{today_date}_{job_title}.docx"
+    unique_filename = f"{today_date}_{job_title}.docx"
     path = os.path.join(app.root_path, "output", unique_filename)
     path_of_coded_cv = os.path.join(app.root_path, "output", f"coded_{unique_filename}")
     path_of_named_cv = os.path.join(app.root_path, "output", f"name_{unique_filename}")
 
     try:
-        # data = json.loads(data)
-        # data["certificates"] = certificates
-        # data["projects"] = projects
         parsed_data["path_of_cv"] = path
         parsed_data["path_of_coded_cv"] = path_of_coded_cv
         parsed_data["path_of_named_cv"] = path_of_named_cv
@@ -236,14 +220,6 @@ def upload_cv():
     flash("Operation successful!", "success")  # "success" is the category
 
     return render_template("generate.html")
-
-    # return data
-    """  Send the file
-    # return send_file(output_path, as_attachment=True)
-    cv_data = service.get_cv(id)
-    cv, skills, experiences = cv_data
-    return render_template("result.html", cv=cv, skills=skills, experiences=experiences)
-    """
 
 
 @app.route("/generate", methods=["GET"])
@@ -366,12 +342,10 @@ def get_prompt_data():
         skill = parsed_data.get("skills")
         format = parsed_data.get("format")
         filter_by = parsed_data.get("not")
-        print(job_title, company, min_experience, skill, format, filter_by)
         # Extract only numbers from years of experience
         min_experience = re.findall(r"\d+", min_experience)
         min_experience = int(min_experience[0]) if min_experience else 0
-        if None in [job_title, company, min_experience, skill, format]:
-            return jsonify({"error": "Missing expected keys in the JSON response"}), 400
+
         format = format.lower()
         valid_formats = ["blind", "blind with name", "blind_with_name"]
         if format not in valid_formats:
@@ -405,7 +379,33 @@ def get_prompt_data():
         cvs = query.all()
 
         if not cvs:
-            return jsonify({"error": "No CVs found with the given criteria"}), 404
+            # If no CVs found, search by common titles in CV job_title and job_title table
+            common_titles = parsed_data.get("common_titles", [])
+            print(common_titles)
+            if common_titles:
+                query = (
+                    CV.query.join(Experiences)
+                    .join(Skills)
+                    .filter(CV.path_of_cv.isnot(None))
+                )
+                query = query.filter(
+                    or_(*[CV.job_title.ilike(f"%{title}%") for title in common_titles])
+                )
+                cvs = query.all()
+
+            if not cvs:
+                # If still no CVs found, search by related skills in skills table
+                related_skills = parsed_data.get("related_skills", [])
+                if related_skills:
+                    skill_filters = [
+                        Skills.name.ilike(f"%{s}%") for s in related_skills
+                    ]
+                query = CV.query.join(Skills).filter(or_(*skill_filters))
+                cvs = query.all()
+
+        if not cvs:
+            flash("No CVs found with the given criteria", "danger")
+            return render_template("result.html")
         # Select files based on format
         if format == "normal":
             valid_files = [
@@ -427,8 +427,8 @@ def get_prompt_data():
             ]
 
         if not valid_files:
-            return jsonify({"error": "No valid CV files found on the server"}), 404
-
+            flash("No valid CV files found on the server", "danger")
+            return render_template("result.html")
         # Create ZIP file
         return render_template("result.html", cvs=cvs)
 
@@ -504,47 +504,19 @@ def upload_cvs():
 
     jobs = []
     for file in files:
-        file_content = file.read()  # Get the binary content
-        file_name = file.filename
-        # Enqueue the parsing task
-        job = queue.enqueue(Tasks.parse_cv, file_name, file_content)
-        jobs.append(job)
+        filename = secure_filename(file.filename)
+        upload_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        file.save(upload_path)  # Save the file to the upload folder
 
-    # Wait for all jobs to complete
-    while any(job.get_status() not in ["finished", "failed"] for job in jobs):
-        time.sleep(1)  # Sleep for a short period to avoid busy waiting
+        with open(upload_path, "rb") as file_content:
+            file_data = file_content.read()  # Get the binary content
+            # Enqueue the parsing task
+            job = queue.enqueue(Tasks.parse_cv, filename, file_data)
+            logging.info(f"Enqueued job {job.id} for file {filename}")
 
-    # Check the status of all jobs
-    job_results = []
-    all_finished = all(job.get_status() == "finished" for job in jobs)
+            jobs.append({"job_id": job.id, "filename": filename})
 
-    for job in jobs:
-        if job.get_status() == "finished":
-            job_results.append(
-                {"job_id": job.id, "filename": job.args[0], "status": "success"}
-            )
-        else:
-            job_results.append(
-                {"job_id": job.id, "filename": job.args[0], "status": "failed"}
-            )
-
-    if all_finished:
-        flash("All jobs completed successfully.", "success")
-    else:
-        flash("Some jobs failed to complete.", "warning")
-
-    return redirect(url_for("upload_multiple_form"))
-    """  for job in jobs:
-        if job.get_status() == "finished":
-            job_results.append(
-                {"job_id": job.id, "filename": job.args[0], "status": "success"}
-            )
-        else:
-            job_results.append(
-                {"job_id": job.id, "filename": job.args[0], "status": "failed"}
-            )
-
-    return jsonify({"message": "All jobs completed.", "jobs": job_results}), 200 """
+    return jsonify({"message": "Files uploaded successfully.", "jobs": jobs}), 200
 
 
 @app.route("/job_status/<job_id>", methods=["GET"])
@@ -851,7 +823,6 @@ import zipfile
 from io import BytesIO
 
 
-# Add this route to your app.py
 @app.route("/download_zip", methods=["POST"])
 def download_zip():
     try:
@@ -925,6 +896,46 @@ def delete_selected():
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/settings", methods=["GET"])
+def display_settings():
+    try:
+        settings_path = os.path.join(app.root_path, "settings.json")
+        with open(settings_path, "r") as file:
+            settings = json.load(file)
+        return render_template("settings.html", settings=settings["configurations"])
+    except Exception as e:
+        logging.error(f"An error occurred: {str(e)}")
+        flash("An error occurred while loading settings.", "danger")
+        return redirect(url_for("get_cv_form"))
+
+
+@app.route("/update_settings", methods=["POST"])
+def update_settings():
+    try:
+        settings_path = os.path.join(app.root_path, "settings.json")
+        with open(settings_path, "r") as file:
+            settings = json.load(file)
+
+        settings["configurations"]["setting1"] = request.form.get("setting1")
+        settings["configurations"]["setting2"] = request.form.get("setting2")
+        settings["configurations"]["setting3"] = request.form.get("setting3")
+
+        with open(settings_path, "w") as file:
+            json.dump(settings, file, indent=4)
+
+        flash("Settings updated successfully!", "success")
+    except Exception as e:
+        logging.error(f"An error occurred: {str(e)}")
+        flash("An error occurred while updating settings.", "danger")
+
+    return redirect(url_for("display_settings"))
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 
 if __name__ == "__main__":

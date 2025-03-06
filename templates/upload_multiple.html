@@ -1,39 +1,48 @@
 {% extends 'base.html' %} {% block content %}
 <h2>Upload Multiple CVs</h2>
-<script>
-  function addInput() {
-    var newInput = document.createElement("input");
-    newInput.type = "file";
-    newInput.name = "files[]";
-    newInput.className = "form-control-file";
-    var formGroup = document.createElement("div");
-    formGroup.className = "form-group";
-    formGroup.appendChild(newInput);
-    var removeButton = document.createElement("button");
-    removeButton.type = "button";
-    removeButton.className = "btn btn-danger";
-    removeButton.innerText = "Remove";
-    removeButton.onclick = function () {
-      formGroup.remove();
-    };
-    formGroup.appendChild(removeButton);
-    document.getElementById("fileInputs").appendChild(formGroup);
-  }
-</script>
-<form
-  method="post"
-  enctype="multipart/form-data"
-  action="{{ url_for('upload_cvs') }}"
->
-  <div id="fileInputs">
-    <div class="form-group">
-      <label for="cv_files">Select CV files:</label>
-    </div>
+<form id="uploadForm" method="post" enctype="multipart/form-data">
+  <div class="form-group">
+    <label for="directory">Select Directory:</label>
+    <input
+      type="file"
+      class="form-control"
+      id="directory"
+      name="directory"
+      webkitdirectory
+      directory
+      multiple
+    />
   </div>
-  <button type="button" class="btn btn-secondary" onclick="addInput()">
-    Add another file
-  </button>
-
   <button type="submit" class="btn btn-primary">Upload</button>
 </form>
+
+<script>
+  document
+    .getElementById("uploadForm")
+    .addEventListener("submit", function (event) {
+      event.preventDefault();
+      const formData = new FormData();
+      const files = document.getElementById("directory").files;
+
+      for (let i = 0; i < files.length; i++) {
+        formData.append("files[]", files[i]);
+      }
+
+      fetch('{{ url_for("upload_cvs") }}', {
+        method: "POST",
+        body: formData,
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.error) {
+            alert(data.error);
+          } else {
+            alert("Files uploaded successfully.");
+          }
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+        });
+    });
+</script>
 {% endblock %}

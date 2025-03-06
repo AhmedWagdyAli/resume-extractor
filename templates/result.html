@@ -4,6 +4,17 @@
   rel="stylesheet"
   href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
 />
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+/>
+
+<script
+  src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+  integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+9oM49l5hb7ie1FqLC7Ew5x0I5iT"
+  crossorigin="anonymous"
+></script>
+
 <style>
   .container {
     margin-top: 20px;
@@ -25,6 +36,15 @@
   tr:nth-child(even) {
     background-color: #f9f9f9;
   }
+  .dropdown-submenu {
+    position: relative;
+  }
+  .dropdown-submenu:hover .dropdown-menu {
+    display: block;
+    left: 100%;
+    top: 0;
+    margin-top: -1px;
+  }
 </style>
 <div class="container">
   <h2>CV List</h2>
@@ -43,30 +63,64 @@
         placeholder="i am looking for a flutter developer with 4 years of experience with skills as .net and php in format code who worked in asgatech"
       />
     </div>
-
     <button type="submit" class="btn btn-success">Search</button>
   </form>
-
-  <div class="btn-group">
-    <a href="/cvs" class="btn btn-primary">Show ALL</a>
-    <button id="downloadSelected" class="btn btn-primary">
-      Download Selected
-    </button>
-    <button id="deleteSelected" class="btn btn-danger">Delete Selected</button>
-
-    <select id="fileType" class="form-control">
-      <span
-        class="dropdown-toggle"
-        data-toggle="dropdown"
+  <div class="btn-group float-right">
+    <br />
+    <div class="dropdown">
+      <button
+        class="btn btn-secondary dropdown-toggle"
+        type="button"
+        id="actionDropdown"
+        data-bs-toggle="dropdown"
         aria-haspopup="true"
         aria-expanded="false"
-      ></span>
-      <option value="full">Full CV</option>
-      <option value="blind">Blind CV</option>
-      <option value="named">Named CV</option>
-      <option value="original">Original CV</option>
-    </select>
+      >
+        Actions
+      </button>
+      <ul class="dropdown-menu" aria-labelledby="actionDropdown">
+        <li class="dropdown-submenu">
+          <a class="dropdown-item" href="#">Download Selected</a>
+          <ul class="dropdown-menu">
+            <li>
+              <select id="fileType" class="form-control">
+                <option value="full">Full CV</option>
+                <option value="blind">Blind CV</option>
+                <option value="named">Named CV</option>
+                <option value="original">Original CV</option>
+              </select>
+            </li>
+            <li>
+              <button id="downloadSelected" class="btn btn-primary">
+                Download
+              </button>
+            </li>
+          </ul>
+        </li>
+        <li class="dropdown-submenu">
+          <a class="dropdown-item" href="#">Upload</a>
+          <ul class="dropdown-menu">
+            <li>
+              <a class="dropdown-item" href="/">Upload Single</a>
+            </li>
+            <li>
+              <a class="dropdown-item" href="/upload_multiple"
+                >Upload Multiple</a
+              >
+            </li>
+          </ul>
+        </li>
+        <li>
+          <a class="dropdown-item" href="#" id="deleteSelected"
+            >Delete Selected</a
+          >
+        </li>
+      </ul>
+    </div>
   </div>
+  <span class="float-right" style="margin-right: 10px">
+    <a href="/cvs" id="showALL"> <i class="fas fa-times"></i> Remove filter </a>
+  </span>
   <table id="cvTable" class="table table-bordered table-striped">
     <thead>
       <tr>
@@ -88,31 +142,31 @@
         <td>{{ cv.job_title }}</td>
         <td>
           <a
-            href="{{ url_for('download_file', filename=cv.path_of_cv.split('/')[-1]) }}"
+            href="{{ url_for('download_file', filename=cv.path_of_cv.split('/')[-1]) }} "
             download
-            >export full cv</a
+            >Export Full CV</a
           >
         </td>
         <td>
           <a
-            href="{{ url_for('download_file', filename=cv.path_of_coded_cv.split('/')[-1]) }}"
+            href="{{ url_for('download_file', filename=cv.path_of_coded_cv.split('/')[-1]) }} "
             download
-            >export blind cv</a
+            >Export Blind CV</a
           >
         </td>
         <td>
           <a
-            href="{{ url_for('download_file', filename=cv.path_of_named_cv.split('/')[-1]) }}"
+            href="{{ url_for('download_file', filename=cv.path_of_named_cv.split('/')[-1]) }} "
             download
-            >Download name cv</a
+            >Download Named CV</a
           >
         </td>
         <td>
           {% if cv.path_of_original_cv %}
           <a
-            href="{{ url_for('download_file', filename= cv.path_of_original_cv.split('/')[-1]) }}"
+            href="{{ url_for('download_file', filename=cv.path_of_original_cv.split('/')[-1]) }} "
             download
-            >export original cv</a
+            >Export Original CV</a
           >
           {% else %} No original CV available {% endif %}
         </td>
@@ -122,57 +176,31 @@
   </table>
 </div>
 <script>
-  function searchTable() {
-    var input, filter, table, tr, td, i, txtValue;
-    input = document.getElementById("searchInput");
-    filter = input.value.toUpperCase();
-    table = document.getElementById("cvTable");
-    tr = table.getElementsByTagName("tr");
-    for (i = 1; i < tr.length; i++) {
-      tr[i].style.display = "none";
-      td = tr[i].getElementsByTagName("td");
-      for (var j = 0; j < td.length; j++) {
-        if (td[j]) {
-          txtValue = td[j].textContent || td[j].innerText;
-          if (txtValue.toUpperCase().indexOf(filter) > -1) {
-            tr[i].style.display = "";
-            break;
-          }
-        }
-      }
-    }
-  }
-
   document.getElementById("selectAll").addEventListener("change", function () {
-    var checkboxes = document.querySelectorAll(".selectRow");
-    for (var checkbox of checkboxes) {
-      checkbox.checked = this.checked;
-    }
+    document
+      .querySelectorAll(".selectRow")
+      .forEach((checkbox) => (checkbox.checked = this.checked));
   });
-
   document
     .getElementById("downloadSelected")
     .addEventListener("click", function () {
-      var selectedIds = [];
-      var checkboxes = document.querySelectorAll(".selectRow:checked");
-      for (var checkbox of checkboxes) {
-        selectedIds.push(checkbox.getAttribute("data-id"));
-      }
+      let selectedIds = [
+        ...document.querySelectorAll(".selectRow:checked"),
+      ].map((checkbox) => checkbox.getAttribute("data-id"));
       if (selectedIds.length > 0) {
-        var fileType = document.getElementById("fileType").value;
-        // Send the selected IDs and file type to the server to create a zip file
+        let fileType = document.getElementById("fileType").value;
         fetch("/download_zip", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-CSRFToken": "{{ csrf_token }}", // Ensure you include the CSRF token
+            "X-CSRFToken": "{{ csrf_token }}",
           },
           body: JSON.stringify({ ids: selectedIds, file_type: fileType }),
         })
           .then((response) => response.blob())
           .then((blob) => {
-            var url = window.URL.createObjectURL(blob);
-            var a = document.createElement("a");
+            let url = window.URL.createObjectURL(blob);
+            let a = document.createElement("a");
             a.href = url;
             a.download = "cvs.zip";
             document.body.appendChild(a);
@@ -188,28 +216,28 @@
   document
     .getElementById("deleteSelected")
     .addEventListener("click", function () {
-      var selectedIds = [];
-      var checkboxes = document.querySelectorAll(".selectRow:checked");
-      for (var checkbox of checkboxes) {
-        selectedIds.push(checkbox.getAttribute("data-id"));
-      }
+      let selectedIds = [
+        ...document.querySelectorAll(".selectRow:checked"),
+      ].map((checkbox) => checkbox.getAttribute("data-id"));
       if (selectedIds.length > 0) {
         fetch("/delete_selected", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-CSRFToken": "{{ csrf_token }}", // Ensure you include the CSRF token
+            "X-CSRFToken": "{{ csrf_token }}",
           },
           body: JSON.stringify({ ids: selectedIds }),
         })
-          .then((response) => response.json())
-          .then((data) => {
-            if (data.message) {
-              alert(data.message);
-              // Optionally, refresh the page or remove the deleted rows from the table
-              location.reload();
-            } else if (data.error) {
-              alert(data.error);
+          .then((response) => {
+            if (response.ok) {
+              selectedIds.forEach((id) => {
+                document
+                  .querySelector(`.selectRow[data-id="${id}"]`)
+                  .closest("tr")
+                  .remove();
+              });
+            } else {
+              alert("Failed to delete selected CVs.");
             }
           })
           .catch((error) => console.error("Error:", error));
