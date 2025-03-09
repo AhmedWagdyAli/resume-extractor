@@ -24,7 +24,7 @@ from models import (
     Certificates,
     Skills,
     Experiences,
-    User,
+    JobTitle,
 )  # Import models from models.py
 from flask_migrate import Migrate
 from sqlalchemy import or_
@@ -61,9 +61,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.secret_key = "supersecret"
 db.init_app(app)
 migrate = Migrate(app, db)
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = "login"
+
 # Ensure directories exist
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 os.makedirs(app.config["OUTPUT_FOLDER"], exist_ok=True)
@@ -77,10 +75,10 @@ def create_app():
     app.config["UPLOAD_FOLDER"] = "./uploads"
     app.config["TEMPLATE_FOLDER"] = "./templates"  # For Word templates
     app.config["OUTPUT_FOLDER"] = "./output"  # For filled CVs
-    """     app.config["SQLALCHEMY_DATABASE_URI"] = (
+    """ app.config["SQLALCHEMY_DATABASE_URI"] = (
         "mysql+mysqlconnector://cvflask_user:password@localhost:3306/cvflask"
-    ) """
-
+    )
+    """
     app.config["SQLALCHEMY_DATABASE_URI"] = (
         "mysql+mysqlconnector://cvflask_user:yourpassword@localhost:3306/cvflask"
     )
@@ -329,7 +327,6 @@ def get_prompt_data():
         chatGpt = ChatGPT()
         data = chatGpt.prompt(text)
         print(data)
-
         parsed_data = json.loads(data)
 
         if data is None:
@@ -381,17 +378,28 @@ def get_prompt_data():
         if not cvs:
             # If no CVs found, search by common titles in CV job_title and job_title table
             common_titles = parsed_data.get("common_titles", [])
-            print(common_titles)
             if common_titles:
+                # searches for job_title in job_titles table
                 query = (
-                    CV.query.join(Experiences)
-                    .join(Skills)
+                    CV.query.join(Experiences, CV.id == Experiences.cv_id)
+                    .join(Skills, CV.id == Skills.cv_id)
+                    .join(JobTitle, CV.id == JobTitle.cv_id)
                     .filter(CV.path_of_cv.isnot(None))
                 )
-                query = query.filter(
-                    or_(*[CV.job_title.ilike(f"%{title}%") for title in common_titles])
-                )
+                query = query.filter(or_(*[JobTitle.title.ilike(f"%{job_title}%")]))
                 cvs = query.all()
+
+                if not cvs:
+                    # search for common_titles in cv. common_titles
+                    query = query.filter(
+                        or_(
+                            *[
+                                CV.job_title.ilike(f"%{title}%")
+                                for title in common_titles
+                            ]
+                        )
+                    )
+                    cvs = query.all()
 
             if not cvs:
                 # If still no CVs found, search by related skills in skills table
@@ -931,11 +939,6 @@ def update_settings():
         flash("An error occurred while updating settings.", "danger")
 
     return redirect(url_for("display_settings"))
-
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
 
 
 if __name__ == "__main__":
