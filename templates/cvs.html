@@ -1,0 +1,236 @@
+{% extends "base.html" %} {% block title %}The Cv{% endblock %} {% block content
+%}
+<link
+  rel="stylesheet"
+  href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+/>
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+/>
+<script
+  src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+  integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+9oM49l5hb7ie1FqLC7Ew5x0I5iT"
+  crossorigin="anonymous"
+></script>
+<style>
+  .container {
+    margin-top: 20px;
+  }
+  #searchInput {
+    margin-bottom: 20px;
+  }
+  table {
+    width: 100%;
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 8px;
+  }
+  th {
+    background-color: #f2f2f2;
+  }
+  tr:nth-child(even) {
+    background-color: #f9f9f9;
+  }
+</style>
+<div class="container">
+  <h2>CV List</h2>
+  <form
+    method="POST"
+    action="/prompt_cv"
+    id="generateForm"
+    enctype="multipart/form-data"
+  >
+    <div class="form-group">
+      <label for="job_title">Search Prompt</label>
+      <input
+        type="text"
+        name="prompt"
+        class="form-control"
+        placeholder="I am looking for a flutter developer with 4 years of experience with skills as .net and php in format code who worked in asgatech"
+      />
+    </div>
+    <button type="submit" class="btn btn-success">Search</button>
+  </form>
+  <div class="float-right">
+    <br />
+    <div class="dropdown d-inline">
+      <button
+        class="btn btn-primary dropdown-toggle"
+        type="button"
+        id="actionsDropdown"
+        data-bs-toggle="dropdown"
+        aria-expanded="false"
+      >
+        Actions
+      </button>
+      <ul class="dropdown-menu" aria-labelledby="actionsDropdown">
+        <li>
+          <a class="dropdown-item" id="downloadFull">Download Full CVs</a>
+        </li>
+        <li>
+          <a class="dropdown-item" id="downloadBlind">Download Blind CVs</a>
+        </li>
+        <li>
+          <a class="dropdown-item" id="downloadNamed">Download Named CVs</a>
+        </li>
+        <li>
+          <a class="dropdown-item" id="downloadOriginal"
+            >Download Original CVs</a
+          >
+        </li>
+        <li>
+          <a class="dropdown-item text-danger" id="deleteSelected"
+            >Delete Selected</a
+          >
+        </li>
+      </ul>
+    </div>
+  </div>
+  <span class="float-right" style="margin-right: 10px">
+    <a href="/cvs" id="showALL"> <i class="fas fa-times"></i> Remove filter </a>
+  </span>
+  <table id="cvTable" class="table table-bordered table-striped">
+    <thead>
+      <tr>
+        <th><input type="checkbox" id="selectAll" /></th>
+        <th>ID</th>
+        <th>Job Title</th>
+        <th>Download</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for cv in cvs %}
+      <tr>
+        <td>
+          <input type="checkbox" class="selectRow" data-id="{{ cv.id }}" />
+        </td>
+        <td>{{ cv.id }}</td>
+        <td>{{ cv.job_title }}</td>
+        <td>
+          <a
+            href="{{ url_for('download_file', filename=cv.path_of_cv.split('/')[-1]) }}"
+            download
+            >Full CV</a
+          >
+          |
+          <a
+            href="{{ url_for('download_file', filename=cv.path_of_coded_cv.split('/')[-1]) }}"
+            download
+            >Blind CV</a
+          >
+          |
+          <a
+            href="{{ url_for('download_file', filename=cv.path_of_named_cv.split('/')[-1]) }}"
+            download
+            >Named CV</a
+          >
+          {% if cv.path_of_original_cv %} |
+          <a
+            href="{{ url_for('download_file', filename=cv.path_of_original_cv.split('/')[-1]) }}"
+            download
+            >Original CV</a
+          >
+          {% else %} No original CV available {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<script>
+  document.getElementById("selectAll").addEventListener("change", function () {
+    document
+      .querySelectorAll(".selectRow")
+      .forEach((checkbox) => (checkbox.checked = this.checked));
+  });
+
+  function downloadSelected(fileType) {
+    let selectedIds = [...document.querySelectorAll(".selectRow:checked")].map(
+      (checkbox) => checkbox.getAttribute("data-id")
+    );
+    if (selectedIds.length > 0) {
+      fetch("/download_zip", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": "{{ csrf_token }}",
+        },
+        body: JSON.stringify({ ids: selectedIds, file_type: fileType }),
+      })
+        .then((response) => response.blob())
+        .then((blob) => {
+          let url = window.URL.createObjectURL(blob);
+          let a = document.createElement("a");
+          a.href = url;
+          a.download = "cvs.zip";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        })
+        .catch((error) => console.error("Error:", error));
+    } else {
+      alert("No CVs selected.");
+    }
+  }
+
+  document
+    .getElementById("downloadFull")
+    .addEventListener("click", function () {
+      downloadSelected("full");
+    });
+
+  document
+    .getElementById("downloadBlind")
+    .addEventListener("click", function () {
+      downloadSelected("blind");
+    });
+
+  document
+    .getElementById("downloadNamed")
+    .addEventListener("click", function () {
+      downloadSelected("named");
+    });
+
+  document
+    .getElementById("downloadOriginal")
+    .addEventListener("click", function () {
+      downloadSelected("original");
+    });
+
+  document
+    .getElementById("deleteSelected")
+    .addEventListener("click", function () {
+      let selectedIds = [
+        ...document.querySelectorAll(".selectRow:checked"),
+      ].map((checkbox) => checkbox.getAttribute("data-id"));
+      if (selectedIds.length > 0) {
+        fetch("/delete_selected", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": "{{ csrf_token }}",
+          },
+          body: JSON.stringify({ ids: selectedIds }),
+        })
+          .then((response) => {
+            if (response.ok) {
+              selectedIds.forEach((id) => {
+                document
+                  .querySelector(`.selectRow[data-id="${id}"]`)
+                  .closest("tr")
+                  .remove();
+              });
+            } else {
+              alert("Failed to delete selected CVs.");
+            }
+          })
+          .catch((error) => console.error("Error:", error));
+      } else {
+        alert("No CVs selected.");
+      }
+    });
+</script>
+{% endblock %}

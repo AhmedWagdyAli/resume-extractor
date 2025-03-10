@@ -51,12 +51,12 @@ queue = Queue(connection=redis_conn, default_timeout=600)
 app.config["UPLOAD_FOLDER"] = "./uploads"
 app.config["TEMPLATE_FOLDER"] = "./templates"  # For Word templates
 app.config["OUTPUT_FOLDER"] = "./output"  # For filled CVs
-""" app.config["SQLALCHEMY_DATABASE_URI"] = (
-    "mysql+mysqlconnector://cvflask_user:password@localhost:3306/cvflask"
-) """
 app.config["SQLALCHEMY_DATABASE_URI"] = (
-    "mysql+mysqlconnector://cvflask_user:yourpassword@localhost:3306/cvflask"
+    "mysql+mysqlconnector://cvflask_user:password@localhost:3306/cvflask"
 )
+""" app.config["SQLALCHEMY_DATABASE_URI"] = (
+    "mysql+mysqlconnector://cvflask_user:yourpassword@localhost:3306/cvflask"
+) """
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.secret_key = "supersecret"
 db.init_app(app)
@@ -102,7 +102,7 @@ def upload_multiple_form():
 @app.route("/cvs")
 def cv_list():
     cvs = CV.query.all()
-    return render_template("result.html", cvs=cvs)
+    return render_template("cvs.html", cvs=cvs)
 
 
 def extract_text_from_pdf(pdf_path):
@@ -329,11 +329,17 @@ def get_prompt_data():
         print(data)
         parsed_data = json.loads(data)
 
+        settings_path = os.path.join(app.root_path, "settings.json")
+        with open(settings_path, "r") as file:
+            settings = json.load(file)
+        parsed_data["flag1"] = settings["configurations"]["setting2"]
+        parsed_data["flag2"] = settings["configurations"]["setting3"]
+
         if data is None:
             return jsonify({"error": "No JSON data returned from the API"}), 400
 
         job_title = parsed_data.get("job_title")
-        job_title = job_title.split()[0] if job_title else None
+        # job_title = job_title.split()[0] if job_title else None
         company = parsed_data.get("company")
         min_experience = parsed_data.get("years_of_experience")
         skill = parsed_data.get("skills")
@@ -354,8 +360,7 @@ def get_prompt_data():
         )
 
         if job_title:
-            query = query.filter(CV.job_title.ilike(f"%{job_title}%"))
-
+            query = query.filter(CV.job_title == job_title)
         if company:
             query = query.filter(Experiences.organisation_name.ilike(f"%{company}%"))
 
@@ -376,44 +381,46 @@ def get_prompt_data():
         cvs = query.all()
 
         if not cvs:
-            # If no CVs found, search by common titles in CV job_title and job_title table
-            common_titles = parsed_data.get("common_titles", [])
-            if common_titles:
-                # searches for job_title in job_titles table
-                query = (
-                    CV.query.join(Experiences, CV.id == Experiences.cv_id)
-                    .join(Skills, CV.id == Skills.cv_id)
-                    .join(JobTitle, CV.id == JobTitle.cv_id)
-                    .filter(CV.path_of_cv.isnot(None))
-                )
-                query = query.filter(or_(*[JobTitle.title.ilike(f"%{job_title}%")]))
-                cvs = query.all()
-
-                if not cvs:
-                    # search for common_titles in cv. common_titles
-                    query = query.filter(
-                        or_(
-                            *[
-                                CV.job_title.ilike(f"%{title}%")
-                                for title in common_titles
-                            ]
-                        )
+            if parsed_data["flag1"] == "True":
+                # If no CVs found, search by common titles in CV job_title and job_title table
+                common_titles = parsed_data.get("common_titles", [])
+                if common_titles:
+                    # searches for job_title in job_titles table
+                    query = (
+                        CV.query.join(Experiences, CV.id == Experiences.cv_id)
+                        .join(Skills, CV.id == Skills.cv_id)
+                        .join(JobTitle, CV.id == JobTitle.cv_id)
+                        .filter(CV.path_of_cv.isnot(None))
                     )
+                    query = query.filter(or_(*[JobTitle.title.ilike(f"%{job_title}%")]))
                     cvs = query.all()
+
+                    if not cvs:
+                        # search for common_titles in cv. common_titles
+                        query = query.filter(
+                            or_(
+                                *[
+                                    CV.job_title.ilike(f"%{title}%")
+                                    for title in common_titles
+                                ]
+                            )
+                        )
+                        cvs = query.all()
 
             if not cvs:
                 # If still no CVs found, search by related skills in skills table
-                related_skills = parsed_data.get("related_skills", [])
-                if related_skills:
-                    skill_filters = [
-                        Skills.name.ilike(f"%{s}%") for s in related_skills
-                    ]
-                query = CV.query.join(Skills).filter(or_(*skill_filters))
-                cvs = query.all()
+                if parsed_data["flag2"] == "True":
+                    related_skills = parsed_data.get("related_skills", [])
+                    if related_skills:
+                        skill_filters = [
+                            Skills.name.ilike(f"%{s}%") for s in related_skills
+                        ]
+                    query = CV.query.join(Skills).filter(or_(*skill_filters))
+                    cvs = query.all()
 
         if not cvs:
             flash("No CVs found with the given criteria", "danger")
-            return render_template("result.html")
+            return render_template("cvs.html")
         # Select files based on format
         if format == "normal":
             valid_files = [
@@ -436,9 +443,9 @@ def get_prompt_data():
 
         if not valid_files:
             flash("No valid CV files found on the server", "danger")
-            return render_template("result.html")
+            return render_template("cvs.html")
         # Create ZIP file
-        return render_template("result.html", cvs=cvs)
+        return render_template("cvs.html", cvs=cvs)
 
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}")
