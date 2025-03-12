@@ -237,11 +237,13 @@ def get_cv_data():
         # Validate format
         valid_formats = ["code", "name"]
         if format not in valid_formats:
-            return jsonify({"error": "Invalid format specified"}), 400
+            flash("Invalid format specified", "danger")
+            return render_template("generate.html")
 
         # Ensure at least one filter is provided
         if not job_title and not company and not min_experience and not skill:
-            return jsonify({"error": "At least one filter is required"}), 400
+            flash("At least one filter is required", "danger")
+            return render_template("generate.html")
 
         # Build query
         query = (
@@ -259,7 +261,9 @@ def get_cv_data():
                 min_experience = int(min_experience)
                 query = query.filter(CV.years_of_experience >= min_experience)
             except ValueError:
-                return jsonify({"error": "Invalid value for years_of_experience"}), 400
+                flash("Invalid value for years_of_experience", "danger")
+                return render_template("generate.html")
+
         if skill:
             skill_list = [s.strip() for s in skill.split(",")]
             if skill_list:
@@ -270,7 +274,8 @@ def get_cv_data():
         cvs = query.all()
 
         if not cvs:
-            return jsonify({"error": "No CVs found with the given criteria"}), 404
+            flash("No CVs found with the given criteria", "danger")
+            return render_template("generate.html")
 
         # Select files based on format
         if format == "normal":
@@ -293,7 +298,8 @@ def get_cv_data():
             ]
 
         if not valid_files:
-            return jsonify({"error": "No valid CV files found on the server"}), 404
+            flash("No valid CV files found on the server", "danger")
+            return render_template("generate.html")
 
         # Create ZIP file
         zip_buffer = BytesIO()
@@ -312,7 +318,8 @@ def get_cv_data():
 
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        flash("An error occurred while generating CVs", "danger")
+        return render_template("generate.html")
 
 
 @app.route("/prompt", methods=["GET"])
@@ -336,7 +343,8 @@ def get_prompt_data():
         parsed_data["flag2"] = settings["configurations"]["setting3"]
 
         if data is None:
-            return jsonify({"error": "No JSON data returned from the API"}), 400
+            flash("No JSON data returned from the API", "danger")
+            return render_template("cvs.html")
 
         job_title = parsed_data.get("job_title")
         # job_title = job_title.split()[0] if job_title else None
@@ -369,8 +377,8 @@ def get_prompt_data():
                 min_experience = int(min_experience)
                 query = query.filter(CV.years_of_experience >= min_experience)
             except ValueError:
-                return jsonify({"error": "Invalid value for years_of_experience"}), 400
-
+                flash("Invalid value for years_of_experience", "danger")
+                return render_template("cvs.html")
         if skill:
             skill_filters = [Skills.name.ilike(f"%{s}%") for s in skill]
             query = query.filter(or_(*skill_filters))
@@ -449,7 +457,8 @@ def get_prompt_data():
 
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        flash("An error occurred while generating CVs", "danger")
+        return render_template("cvs.html")
 
 
 """ @app.route("/download/<filename>")
@@ -480,7 +489,7 @@ def download_file(filename):
         return send_file(uploads_file_path, as_attachment=True)
 
     # If the file is not found in either directory, return an error
-    return jsonify({"error": "File not found"}), 404
+    flash("File not found", "danger")
 
 
 """ @app.route("/upload_cvs", methods=["POST"])
@@ -511,12 +520,12 @@ def upload_cvs():
     from tasks import Tasks  # Local import to avoid circular import
 
     if "files[]" not in request.files:
-        return jsonify({"error": "No files provided"}), 400
-
+        flash("No files provided", "danger")
+        return redirect(url_for("upload_multiple_form"))
     files = request.files.getlist("files[]")
     if not files:
-        return jsonify({"error": "No files provided"}), 400
-
+        flash("No files provided", "danger")
+        return redirect(url_for("upload_multiple_form"))
     jobs = []
     for file in files:
         filename = secure_filename(file.filename)
@@ -531,7 +540,8 @@ def upload_cvs():
 
             jobs.append({"job_id": job.id, "filename": filename})
 
-    return jsonify({"message": "Files uploaded successfully.", "jobs": jobs}), 200
+    flash("Files uploaded successfully", "success")
+    return redirect(url_for("upload_multiple_form"))
 
 
 @app.route("/job_status/<job_id>", methods=["GET"])
@@ -846,13 +856,14 @@ def download_zip():
         file_type = data.get("file_type", "full")
 
         if not selected_ids:
-            return jsonify({"error": "No CVs selected."}), 400
-
+            flash("No CVs selected.", "danger")
+            return render_template("cvs.html")
         # Fetch the selected CVs from the database
         cvs = CV.query.filter(CV.id.in_(selected_ids)).all()
 
         if not cvs:
-            return jsonify({"error": "No CVs found with the given IDs."}), 404
+            flash("No CVs found with the given IDs.", "danger")
+            return render_template("cvs.html")
 
         # Create a ZIP file in memory
         zip_buffer = BytesIO()
@@ -882,8 +893,8 @@ def download_zip():
         )
 
     except Exception as e:
-        logging.error(f"An error occurred: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        flash("An error occurred while downloading CVs", "danger")
+        return render_template("cvs.html")
 
 
 @app.route("/delete_selected", methods=["POST"])
@@ -893,24 +904,25 @@ def delete_selected():
         selected_ids = data.get("ids", [])
 
         if not selected_ids:
-            return jsonify({"error": "No CVs selected."}), 400
-
+            flash("No CVs selected.", "danger")
+            return render_template("cvs.html")
         # Fetch the selected CVs from the database
         cvs = CV.query.filter(CV.id.in_(selected_ids)).all()
 
         if not cvs:
-            return jsonify({"error": "No CVs found with the given IDs."}), 404
-
+            flash("No CVs found with the given IDs.", "danger")
+            return render_template("cvs.html")
         # Delete the selected CVs
         for cv in cvs:
             db.session.delete(cv)
         db.session.commit()
 
-        return jsonify({"message": "Selected CVs deleted successfully."}), 200
-
+        flash("Selected CVs deleted successfully.", "success")
+        return render_template("cvs.html")
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        flash("An error occurred while deleting CVs", "danger")
+        return render_template("cvs.html")
 
 
 @app.route("/settings", methods=["GET"])
