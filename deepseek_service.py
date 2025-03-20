@@ -2,13 +2,14 @@ import requests
 import json
 import re
 import os
+import logging
 from dotenv import load_dotenv
 from openai import OpenAI
-
 
 load_dotenv()
 
 deepseek_api_key = os.getenv("DeepSeek_API_key")
+
 json_content = """{{
     "name": "",
     "email" : "",
@@ -22,7 +23,8 @@ json_content = """{{
     "is_fresher": "yes/no",
     "is_student": "yes/no",
     "skills": ["",""],
-    "applied_for_profile": "",
+    "job_title": "",
+    common_titles:[],
     "education": [
         {{
             "institute_name": "",
@@ -62,7 +64,7 @@ json_content = """{{
 
 class DeepSeekInputData:
     def __init__(self):
-        self.url = "https://api.deepinfra.com/v1/openai/chat/completions"
+        self.url = "https://api.deepseek.com"
         self.headers = {
             "Content-Type": "application/json",
             "Authorization": "Bearer " + deepseek_api_key,
@@ -72,7 +74,10 @@ class DeepSeekInputData:
         # for backward compatibility, you can still use `https://api.deepseek.com/v1` as `base_url`.
         client = OpenAI(api_key=deepseek_api_key, base_url="https://api.deepseek.com")
         system_content = (
-            f"Can you parse through this text for me and extract it into {json_content} and return the JSON under the 'json' key?",
+            f"Parse the provided text into structured {json_content}. "
+            "Calculate years of experience based on job durations. "
+            "Handle 'Present' or 'current' as today's date (February 2025). "
+            "Return the result as JSON under the 'json' key."
         )
 
         response = client.chat.completions.create(
@@ -86,7 +91,102 @@ class DeepSeekInputData:
             stream=False,
         )
 
-        return response.choices[0].message.content
+        # Get and strip the raw content from the API response
+        raw_content = response.choices[0].message.content.strip()
+
+        # Remove markdown code fences if present
+        if raw_content.startswith("```") and raw_content.endswith("```"):
+            raw_content = raw_content.strip("`")
+            if raw_content.lower().startswith("json"):
+                raw_content = raw_content[4:].strip()
+
+        if not raw_content:
+            logging.error("DeepSeek API returned an empty response.")
+            return {}  # Return an empty dict to avoid NoneType issues
+
+        try:
+            parsed_response = json.loads(raw_content)
+        except json.JSONDecodeError as e:
+            logging.error(f"Error decoding JSON from DeepSeek response: {e}")
+            logging.error(f"Raw response content: {raw_content}")
+            return {}
+
+        # If the response contains a 'json' key, return its value.
+        if "json" in parsed_response:
+            result = parsed_response["json"]
+            logging.info(f"DeepSeek response JSON: {result}")
+            return result
+        # Otherwise, check if the response itself appears to follow the expected format.
+        elif all(key in parsed_response for key in json_content):
+            logging.info(f"DeepSeek response JSON (direct): {parsed_response}")
+            return parsed_response
+        else:
+            logging.error("Expected key 'json' not found in response.")
+            logging.error(f"Raw response content: {raw_content}")
+            return {}
+
+    def prompt(self, user_prompt):
+        json_format = {
+            "job_title": "",
+            "years_of_experience": "",
+            "skills": [],
+            "company": "",
+            "format": "",
+            "certificates": [],
+            "not": "",
+            "generated_titles": [],
+            "generated_skills": [],
+        }
+
+        system_instruction = (
+            "When extracting 'job_title', infer 'common_titles' based on similar industry roles. "
+            "Similarly, infer 'related_skills' from industry standards and common competencies for that job, not from the text itself. "
+            f"Ensure the output strictly follows the {json_format}, without deviation."
+        )
+
+        client = OpenAI(api_key=deepseek_api_key, base_url="https://api.deepseek.com")
+
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": user_prompt},
+            ],
+        )
+
+        # Get and strip the raw content from the API response
+        raw_content = response.choices[0].message.content.strip()
+
+        # Remove markdown code fences if present
+        if raw_content.startswith("```") and raw_content.endswith("```"):
+            raw_content = raw_content.strip("`")
+            if raw_content.lower().startswith("json"):
+                raw_content = raw_content[4:].strip()
+
+        if not raw_content:
+            logging.error("DeepSeek API returned an empty response.")
+            return {}  # Return an empty dict to avoid NoneType issues
+
+        try:
+            parsed_response = json.loads(raw_content)
+        except json.JSONDecodeError as e:
+            logging.error(f"Error decoding JSON from DeepSeek response: {e}")
+            logging.error(f"Raw response content: {raw_content}")
+            return {}
+
+        # If the response contains a 'json' key, return its value.
+        if "json" in parsed_response:
+            result = parsed_response["json"]
+            logging.info(f"DeepSeek response JSON: {result}")
+            return result
+        # Otherwise, check if the response itself appears to follow the expected format.
+        elif all(key in parsed_response for key in json_format):
+            logging.info(f"DeepSeek response JSON (direct): {parsed_response}")
+            return parsed_response
+        else:
+            logging.error("Expected key 'json' not found in response.")
+            logging.error(f"Raw response content: {raw_content}")
+            return {}
 
 
 if __name__ == "__main__":

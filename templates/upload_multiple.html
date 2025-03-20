@@ -16,11 +16,23 @@
   <button type="submit" class="btn btn-primary">Upload</button>
 </form>
 
+<!-- Spinner -->
+<div id="loadingSpinner" class="text-center mt-3" style="display: none">
+  <div class="spinner-border text-primary" role="status">
+    <span class="sr-only"></span>
+  </div>
+  <p>Uploading files, please wait...</p>
+</div>
+
 <script>
   document
     .getElementById("uploadForm")
     .addEventListener("submit", function (event) {
       event.preventDefault();
+
+      // Show the spinner
+      document.getElementById("loadingSpinner").style.display = "block";
+
       const formData = new FormData();
       const files = document.getElementById("directory").files;
 
@@ -34,6 +46,9 @@
       })
         .then((response) => response.json())
         .then((data) => {
+          // Hide the spinner
+          document.getElementById("loadingSpinner").style.display = "none";
+
           if (data.error) {
             alert(data.error);
           } else {
@@ -41,7 +56,8 @@
           }
         })
         .catch((error) => {
-          console.error("Error:", error);
+          // Hide the spinner
+          document.getElementById("loadingSpinner").style.display = "none";
         });
     });
 </script>

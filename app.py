@@ -41,7 +41,7 @@ from prompt import DeepSeekPrompt
 from deepseek_parse import DeepSeekInputData as DeepSeekInput
 from chatgpt_service import ChatGPTInputData as ChatGPT
 from dotenv import load_dotenv
-from flask_login import LoginManager
+from service_switcher import ServiceSwitcher
 
 load_dotenv()
 app = Flask(__name__)
@@ -51,12 +51,12 @@ queue = Queue(connection=redis_conn, default_timeout=600)
 app.config["UPLOAD_FOLDER"] = "./uploads"
 app.config["TEMPLATE_FOLDER"] = "./templates"  # For Word templates
 app.config["OUTPUT_FOLDER"] = "./output"  # For filled CVs
-""" app.config["SQLALCHEMY_DATABASE_URI"] = (
-    "mysql+mysqlconnector://cvflask_user:password@localhost:3306/cvflask"
-) """
 app.config["SQLALCHEMY_DATABASE_URI"] = (
-    "mysql+mysqlconnector://cvflask_user:yourpassword@localhost:3306/cvflask"
+    "mysql+mysqlconnector://cvflask_user:password@localhost:3306/cvflask"
 )
+""" app.config["SQLALCHEMY_DATABASE_URI"] = (
+    "mysql+mysqlconnector://cvflask_user:yourpassword@localhost:3306/cvflask"
+) """
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.secret_key = "supersecret"
 db.init_app(app)
@@ -75,13 +75,13 @@ def create_app():
     app.config["UPLOAD_FOLDER"] = "./uploads"
     app.config["TEMPLATE_FOLDER"] = "./templates"  # For Word templates
     app.config["OUTPUT_FOLDER"] = "./output"  # For filled CVs
-    """ app.config["SQLALCHEMY_DATABASE_URI"] = (
+    app.config["SQLALCHEMY_DATABASE_URI"] = (
         "mysql+mysqlconnector://cvflask_user:password@localhost:3306/cvflask"
     )
-    """
-    app.config["SQLALCHEMY_DATABASE_URI"] = (
+
+    """     app.config["SQLALCHEMY_DATABASE_URI"] = (
         "mysql+mysqlconnector://cvflask_user:yourpassword@localhost:3306/cvflask"
-    )
+    ) """
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.secret_key = "supersecret"
     db.init_app(app)
@@ -177,14 +177,16 @@ def upload_cv():
     # Process the CV
     text = ExtractText.extract_based_on_extension(upload_path)
 
-    chatgpt = ChatGPT()
+    parsed_data = ServiceSwitcher.parseService(text)
+
+    """     chatgpt = ChatGPT()
     data = chatgpt.invoke(text)
-    print(data)
-    try:
+    print(data) """
+    """  try:
         parsed_data = json.loads(data)
 
     except json.JSONDecodeError:
-        print("Error: Data is not valid JSON.")
+        print("Error: Data is not valid JSON.") """
 
     job_title = parsed_data.get("job_title", "No job title")
     # initials = "".join([name[0] for name in parsed_data.get("name") if name])
@@ -330,146 +332,171 @@ def generate_prompt_form():
 @app.route("/prompt_cv", methods=["POST"])
 def get_prompt_data():
     try:
+        # Process incoming prompt and ChatGPT response
         text = request.form.get("prompt")
-        chatGpt = ChatGPT()
-        data = chatGpt.prompt(text)
-        print(data)
-        parsed_data = json.loads(data)
+        # Load settings from file
+        settings = load_settings()
+        search_by_generated_job_titles = settings["configurations"]["setting2"]
+        search_by_generated_skills = settings["configurations"]["setting3"]
+        exact_search = settings["configurations"]["setting4"]
+        # this switches LLM model based on setting, parse the text and return the parsed data
+        parsed_data = ServiceSwitcher.togglePromptService(text)
+        print(parsed_data)
+        """  try:
+            parsed_data = json.loads(data)
+        except json.JSONDecodeError:
+            flash("Error: Data is not valid JSON.", "danger")
+            return render_template("cvs.html") """
 
-        settings_path = os.path.join(app.root_path, "settings.json")
-        with open(settings_path, "r") as file:
-            settings = json.load(file)
-        parsed_data["flag1"] = settings["configurations"]["setting2"]
-        parsed_data["flag2"] = settings["configurations"]["setting3"]
-
-        if data is None:
-            flash("No JSON data returned from the API", "danger")
-            return render_template("cvs.html")
-
+        # Extract parameters from parsed_data
         job_title = parsed_data.get("job_title")
-        # job_title = job_title.split()[0] if job_title else None
         company = parsed_data.get("company")
-        min_experience = parsed_data.get("years_of_experience")
+        min_experience_str = parsed_data.get("years_of_experience", "")
         skill = parsed_data.get("skills")
-        format = parsed_data.get("format")
+        fmt = (parsed_data.get("format") or "").lower()
         filter_by = parsed_data.get("not")
-        # Extract only numbers from years of experience
-        min_experience = re.findall(r"\d+", min_experience)
-        min_experience = int(min_experience[0]) if min_experience else 0
+        min_experience = extract_experience(min_experience_str)
 
-        format = format.lower()
+        # Normalize format
         valid_formats = ["blind", "blind with name", "blind_with_name"]
-        if format not in valid_formats:
-            format = "normal"
+        fmt = fmt if fmt in valid_formats else "normal"
 
-        # Build query
-        query = (
-            CV.query.join(Experiences).join(Skills).filter(CV.path_of_cv.isnot(None))
+        # Build the initial query
+        query = build_initial_query(
+            job_title, company, min_experience, skill, filter_by, exact_search
         )
-
-        if job_title:
-            query = query.filter(CV.job_title == job_title)
-        if company:
-            query = query.filter(Experiences.organisation_name.ilike(f"%{company}%"))
-
-        if min_experience:
-            try:
-                min_experience = int(min_experience)
-                query = query.filter(CV.years_of_experience >= min_experience)
-            except ValueError:
-                flash("Invalid value for years_of_experience", "danger")
-                return render_template("cvs.html")
-        if skill:
-            skill_filters = [Skills.name.ilike(f"%{s}%") for s in skill]
-            query = query.filter(or_(*skill_filters))
-            # print(query)
-        if filter_by:
-            query = query.filter(CV.job_title != filter_by)
-        # Fetch results
         cvs = query.all()
 
+        # Fallback: Search by generated titles if no CVs found
         if not cvs:
-            if parsed_data["flag1"] == "True":
-                # If no CVs found, search by common titles in CV job_title and job_title table
-                common_titles = parsed_data.get("common_titles", [])
-                if common_titles:
-                    # searches for job_title in job_titles table
-                    query = (
-                        CV.query.join(Experiences, CV.id == Experiences.cv_id)
-                        .join(Skills, CV.id == Skills.cv_id)
-                        .join(JobTitle, CV.id == JobTitle.cv_id)
-                        .filter(CV.path_of_cv.isnot(None))
-                    )
-                    query = query.filter(or_(*[JobTitle.title.ilike(f"%{job_title}%")]))
-                    cvs = query.all()
-
-                    if not cvs:
-                        # search for common_titles in cv. common_titles
-                        query = query.filter(
-                            or_(
-                                *[
-                                    CV.job_title.ilike(f"%{title}%")
-                                    for title in common_titles
-                                ]
-                            )
-                        )
-                        cvs = query.all()
-
-            if not cvs:
-                # If still no CVs found, search by related skills in skills table
-                if parsed_data["flag2"] == "True":
-                    related_skills = parsed_data.get("related_skills", [])
-                    if related_skills:
-                        skill_filters = [
-                            Skills.name.ilike(f"%{s}%") for s in related_skills
-                        ]
-                    query = CV.query.join(Skills).filter(or_(*skill_filters))
-                    cvs = query.all()
+            cvs = fallback_search_titles(
+                parsed_data, job_title, search_by_generated_job_titles
+            )
+        # Fallback: Search by generated skills if still no CVs and setting enabled
+        if not cvs and search_by_generated_skills.lower() == "true":
+            cvs = fallback_search_skills(parsed_data)
 
         if not cvs:
             flash("No CVs found with the given criteria", "danger")
             return render_template("cvs.html")
-        # Select files based on format
-        if format == "normal":
-            valid_files = [
-                cv.path_of_cv
-                for cv in cvs
-                if cv.path_of_cv and os.path.isfile(cv.path_of_cv)
-            ]
-        elif format == "blind":
-            valid_files = [
-                cv.path_of_coded_cv
-                for cv in cvs
-                if cv.path_of_coded_cv and os.path.isfile(cv.path_of_coded_cv)
-            ]
-        else:  # format == "named"
-            valid_files = [
-                cv.path_of_named_cv
-                for cv in cvs
-                if cv.path_of_named_cv and os.path.isfile(cv.path_of_named_cv)
-            ]
 
+        # Determine valid files based on desired format
+        valid_files = get_valid_files(cvs, fmt)
         if not valid_files:
             flash("No valid CV files found on the server", "danger")
             return render_template("cvs.html")
-        # Create ZIP file
-        return render_template("cvs.html", cvs=cvs)
 
+        return render_template("cvs.html", cvs=cvs)
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}")
         flash("An error occurred while generating CVs", "danger")
         return render_template("cvs.html")
 
 
-""" @app.route("/download/<filename>")
-def download_file(filename):
-   
-    directory = os.path.join(app.root_path, "output")
-    file_path = os.path.join(directory, filename)
-    if os.path.exists(file_path):
-        return send_file(file_path, as_attachment=True)
-    else:
-        return jsonify({"error": "File not found"}), 404 """
+def load_settings():
+    """Load settings from the settings.json file."""
+    settings_path = os.path.join(app.root_path, "settings.json")
+    with open(settings_path, "r") as file:
+        return json.load(file)
+
+
+def extract_experience(experience_str):
+    """Extracts the first integer found in the experience string."""
+    matches = re.findall(r"\d+", experience_str)
+    return int(matches[0]) if matches else 0
+
+
+def build_initial_query(
+    job_title, company, min_experience, skill, filter_by, exact_search
+):
+    """Build the base query with filters for job title, company, experience, and skills."""
+    query = CV.query.join(Experiences).join(Skills).filter(CV.path_of_cv.isnot(None))
+
+    if job_title:
+        if exact_search == "True":
+            query = query.filter(CV.job_title == job_title)
+        else:
+            query = query.filter(CV.job_title.ilike(f"%{job_title}%"))
+
+    if company:
+        query = query.filter(Experiences.organisation_name.ilike(f"%{company}%"))
+
+    if min_experience:
+        try:
+            query = query.filter(CV.years_of_experience >= int(min_experience))
+        except ValueError:
+            flash("Invalid value for years_of_experience", "danger")
+            return render_template("cvs.html")
+
+    if skill:
+        skill_filters = [Skills.name.ilike(f"%{s}%") for s in skill]
+        query = query.filter(or_(*skill_filters))
+
+    if filter_by:
+        query = query.filter(CV.job_title != filter_by)
+
+    return query
+
+
+def fallback_search_titles(parsed_data, job_title, search_by_generated_job_titles):
+    """Perform fallback search using generated job titles if enabled."""
+    cvs = []
+    if search_by_generated_job_titles.lower() == "true":
+        generated_titles = parsed_data.get("generated_titles", [])
+        if generated_titles:
+            # Search for job_title in the JobTitle table
+            query = (
+                CV.query.join(Experiences, CV.id == Experiences.cv_id)
+                .join(Skills, CV.id == Skills.cv_id)
+                .join(JobTitle, CV.id == JobTitle.cv_id)
+                .filter(CV.path_of_cv.isnot(None))
+                .filter(or_(JobTitle.title.ilike(f"%{job_title}%")))
+            )
+            cvs = query.all()
+            if not cvs:
+                # Fallback: search generated_titles in CV.job_title field
+                query = query.filter(
+                    or_(
+                        *(
+                            CV.job_title.ilike(f"%{title}%")
+                            for title in generated_titles
+                        )
+                    )
+                )
+                cvs = query.all()
+    return cvs
+
+
+def fallback_search_skills(parsed_data):
+    """Perform fallback search using generated skills if available."""
+    generated_skills = parsed_data.get("generated_skills", [])
+    if generated_skills:
+        skill_filters = [Skills.name.ilike(f"%{s}%") for s in generated_skills]
+        query = CV.query.join(Skills).filter(or_(*skill_filters))
+        return query.all()
+    return []
+
+
+def get_valid_files(cvs, fmt):
+    """Determine valid CV files based on the selected format."""
+    if fmt == "normal":
+        return [
+            cv.path_of_cv
+            for cv in cvs
+            if cv.path_of_cv and os.path.isfile(cv.path_of_cv)
+        ]
+    elif fmt == "blind":
+        return [
+            cv.path_of_coded_cv
+            for cv in cvs
+            if cv.path_of_coded_cv and os.path.isfile(cv.path_of_coded_cv)
+        ]
+    else:  # For "blind with name" or "blind_with_name"
+        return [
+            cv.path_of_named_cv
+            for cv in cvs
+            if cv.path_of_named_cv and os.path.isfile(cv.path_of_named_cv)
+        ]
 
 
 @app.route("/download/<filename>")
@@ -521,12 +548,12 @@ def upload_cvs():
 
     if "files[]" not in request.files:
         flash("No files provided", "danger")
-        return redirect(url_for("upload_multiple_form"))
     files = request.files.getlist("files[]")
     if not files:
         flash("No files provided", "danger")
-        return redirect(url_for("upload_multiple_form"))
     jobs = []
+    job_ids = []
+
     for file in files:
         filename = secure_filename(file.filename)
         upload_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
@@ -537,11 +564,13 @@ def upload_cvs():
             # Enqueue the parsing task
             job = queue.enqueue(Tasks.parse_cv, filename, file_data)
             logging.info(f"Enqueued job {job.id} for file {filename}")
+            job_ids.append(job.id)
 
             jobs.append({"job_id": job.id, "filename": filename})
+    redis_conn.set("pending_jobs", len(job_ids))
 
     flash("Files uploaded successfully", "success")
-    return redirect(url_for("upload_multiple_form"))
+    return jsonify({"message": "Files uploaded successfully.", "jobs": jobs}), 200
 
 
 @app.route("/job_status/<job_id>", methods=["GET"])
@@ -554,6 +583,21 @@ def job_status(job_id):
         return jsonify({"error": "Job not found"}), 404
 
     return jsonify({"job_id": job.id, "status": job.get_status()}), 200
+
+
+""" from rq.job import Job
+
+
+@app.route("/check_jobs", methods=["GET"])
+def check_jobs():
+    pending_jobs = int(redis_conn.get("pending_jobs") or 0)
+
+    # If all jobs are done, reset the counter and notify the client
+    if pending_jobs <= 0:
+        return jsonify({"status": "done"})
+
+    return jsonify({"status": "processing", "pending": pending_jobs})
+"""
 
 
 def add_section(doc, title, items, bullet_points=False):
@@ -945,9 +989,10 @@ def update_settings():
         with open(settings_path, "r") as file:
             settings = json.load(file)
 
-        settings["configurations"]["setting1"] = request.form.get("setting1")
+        settings["configurations"]["LLM_Model"] = request.form.get("LLM_Model")
         settings["configurations"]["setting2"] = request.form.get("setting2")
         settings["configurations"]["setting3"] = request.form.get("setting3")
+        settings["configurations"]["setting4"] = request.form.get("setting4")
 
         with open(settings_path, "w") as file:
             json.dump(settings, file, indent=4)

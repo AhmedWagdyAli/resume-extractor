@@ -11,9 +11,13 @@ from app import create_app
 from chatgpt_service import ChatGPTInputData as ChatGPT
 import time
 import logging
+from redis import Redis
+from service_switcher import ServiceSwitcher
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
+
+redis_conn = Redis()
 
 
 class Tasks:
@@ -35,24 +39,24 @@ class Tasks:
 
         if not text:
             raise Exception("Error processing CV.")
-        chatgpt = ChatGPT()
+        """  chatgpt = ChatGPT()
         data = chatgpt.invoke(input.input_data(text))
-        logging.debug(f"Data received from ChatGPT: {data}")
+        logging.debug(f"Data received from ChatGPT: {data}") """
+        parsed_data = ServiceSwitcher.parseService(text)
 
-        try:
-            parsed_data = json.loads(data)
-        except json.JSONDecodeError:
-            raise Exception("Error: Data is not valid JSON.")
-
+        if not isinstance(parsed_data, dict):
+            try:
+                parsed_data = json.loads(parsed_data)
+                logging.debug(f"Data received from service: {parsed_data}")
+            except json.JSONDecodeError as e:
+                logging.error(f"Error decoding JSON: {e}")
         # Define the output directory for the filled CV
         output_dir = "output"
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        # Define the output path
-        initials = "".join([name[0] for name in parsed_data["name"].split() if name])
         today_date = time.strftime("%Y%m%d")
-        unique_filename = f"{initials}_{today_date}.docx"
+        unique_filename = f"{today_date}.docx"
         path = os.path.join(app.root_path, "output", unique_filename)
         path_of_coded_cv = os.path.join(app.root_path, "output", f"B_{unique_filename}")
         path_of_named_cv = os.path.join(app.root_path, "output", f"BN{unique_filename}")
@@ -79,5 +83,5 @@ class Tasks:
         if not os.path.exists(path):
             logging.error(f"Output file not found at path: {path}")
             raise Exception("Error: Output file not found.")
-
+        redis_conn.decr("pending_jobs")
         return {"status": "success", "output_path": path}

@@ -1,55 +1,82 @@
 {% extends "base.html" %} {% block title %}generate a CV{% endblock %} {% block
-content %}
-
-<h2>Settings</h2>
-<form method="post" action="/update_settings" id="settings-form" class="form">
-  <table class="table">
-    <tr>
-      <td><label for="LLM_Model">Model:</label></td>
-      <td>
-        <input
-          type="text"
-          id="LLM_Model"
-          name="LLM_Model"
-          value="{{ settings.LLM_Model }}"
-          class="form-control"
-          onblur="submitForm()"
-        />
-      </td>
-    </tr>
-    <tr>
-      <td><label for="setting2">Enable search by generated titles:</label></td>
-      <td>
-        <input
-          type="text"
-          id="setting2"
-          name="setting2"
-          value="{{ settings.setting2 }}"
-          class="form-control"
-          onblur="submitForm()"
-        />
-      </td>
-    </tr>
-    <tr>
-      <td><label for="setting3">Enable search by generated skills:</label></td>
-      <td>
-        <input
-          type="text"
-          id="setting3"
-          name="setting3"
-          value="{{ settings.setting3 }}"
-          class="form-control"
-          onblur="submitForm()"
-        />
-      </td>
-    </tr>
-  </table>
-  <button type="submit" class="btn btn-primary">Save Settings</button>
-</form>
-
-<script>
-  function submitForm() {
-    document.getElementById("settings-form").submit();
-  }
-</script>
-{% endblock %}
+  content %}
+  
+  <h2>Settings</h2>
+  <form method="post" action="/update_settings" id="settings-form" class="form">
+    <table class="table">
+      <tr>
+        <td><label for="LLM_Model">Model:</label></td>
+        <td>
+          <select
+            id="LLM_Model"
+            name="LLM_Model"
+            class="form-control"
+            onchange="submitForm()"
+          >
+            <option value="" disabled selected>Select a model</option>
+            <option value="chatgpt" {% if settings.LLM_Model == "chatgpt" %}selected{% endif %}>ChatGPT</option>
+            <option value="deepseek" {% if settings.LLM_Model == "deepseek" %}selected{% endif %}>DeepSeek</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <label for="setting4">Exact Search in Original Content:</label>
+        </td>
+        <td>
+          <select
+            id="setting4"
+            name="setting4"
+            class="form-control"
+            onchange="submitForm()"
+          >
+            <option value="" disabled selected>Select an option</option>
+            <option value="true" {% if settings.setting4 == "true" %}selected{% endif %}>True</option>
+            <option value="false" {% if settings.setting4 == "false" %}selected{% endif %}>False</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <label for="setting2">Intelligent Search in generated Job titles:</label>
+        </td>
+        <td>
+          <select
+            id="setting2"
+            name="setting2"
+            class="form-control"
+            onchange="submitForm()"
+          >
+            <option value="" disabled selected>Select an option</option>
+            <option value="true" {% if settings.setting2 == "true" %}selected{% endif %}>True</option>
+            <option value="false" {% if settings.setting2 == "false" %}selected{% endif %}>False</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <label for="setting3">Intelligent Search in generated skills:</label>
+        </td>
+        <td>
+          <select
+            id="setting3"
+            name="setting3"
+            class="form-control"
+            onchange="submitForm()"
+          >
+            <option value="" disabled selected>Select an option</option>
+            <option value="true" {% if settings.setting3 == "true" %}selected{% endif %}>True</option>
+            <option value="false" {% if settings.setting3 == "false" %}selected{% endif %}>False</option>
+          </select>
+        </td>
+      </tr>
+    </table>
+    <button type="submit" class="btn btn-primary">Save Settings</button>
+  </form>
+  
+  <script>
+    function submitForm() {
+      document.getElementById("settings-form").submit();
+    }
+  </script>
+  {% endblock %}

@@ -158,8 +158,8 @@ class ChatGPTInputData:
                 "format": "",
                 "certificates": [],
                 "not": "",
-                "common_titles": [],
-                "related_skills": [],
+                "generated_titles": [],
+                "generated_skills": [],
             }
         )
 
