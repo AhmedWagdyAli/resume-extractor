@@ -1,7 +1,8 @@
 import os
 from docx import Document
-from app import app
 import logging
+from docx.oxml import OxmlElement
+from docx.text.paragraph import Paragraph
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -70,50 +71,84 @@ class CVProcessor:
         for info in personal_info:
             doc.add_paragraph(info)
 
-    def format_experience(self, experience_list):
+    def format_experience(self, experience_list, doc):
         if not isinstance(experience_list, list) or not experience_list:
-            return "Not provided"
+            doc.add_paragraph("Not provided")
+            return
 
-        formatted_experience = []
         for item in experience_list:
-            details = []
+            exp_paragraph = doc.add_paragraph()
             for key, value in item.items():
-                if value:  # Include only non-empty values
-                    # Format the key-value pair in key: value format
-                    details.append(f"{key}: {value}")
-            # Join details with a newline and ensure proper indentation for each item
-            formatted_experience.append("\n".join(details))
-        # Separate each experience entry with an additional newline for clarity
-        return "\n\n".join(formatted_experience)
+                if value:
+                    # Bold organisation_name; normal for others.
+                    if key == "organisation_name":
+                        run = exp_paragraph.add_run(
+                            f"{key.replace('_', ' ').title()}: {value}\n"
+                        )
+                        run.bold = True
+                    else:
+                        exp_paragraph.add_run(
+                            f"{key.replace('_', ' ').title()}: {value}\n"
+                        )
+            exp_paragraph.add_run("\n")  # Extra newline between experiences
 
-    def format_skills(self, skills_text):
+    def format_projects(self, proj_list, doc):
+        if not isinstance(proj_list, list) or not proj_list:
+            doc.add_paragraph("Not provided")
+            return
+
+        for project in proj_list:
+            proj_paragraph = doc.add_paragraph()
+            for key, value in project.items():
+                if value:
+                    # Bold the title field
+                    if key == "title":
+                        run = proj_paragraph.add_run(
+                            f"{key.replace('_', ' ').title()}: {value}\n"
+                        )
+                        run.bold = True
+                    else:
+                        proj_paragraph.add_run(
+                            f"{key.replace('_', ' ').title()}: {value}\n"
+                        )
+            proj_paragraph.add_run("\n")  # Extra newline between projects
+
+    def format_skills(self, skills_text, doc):
         if not skills_text or not isinstance(skills_text, list):
-            return "N/A"
-        skills_list = [skill.strip() for skill in skills_text]
-        # TODO: insert into database here
-        return "\n".join(f"• {skill}" for skill in skills_list if skill)
+            doc.add_paragraph("N/A")
+            return
+        for skill in skills_text:
+            p = doc.add_paragraph(style="List Bullet")
+            p.add_run(skill.strip())
 
-    def format_education(self, education_list):
-        if not isinstance(education_list, list):
-            return "N/A"
-
-        formatted_education = []
+    def format_education(self, education_list, doc):
+        if not isinstance(education_list, list) or not education_list:
+            doc.add_paragraph("N/A")
+            return
         for item in education_list:
-            details = []
+            edu_paragraph = doc.add_paragraph()
             for key, value in item.items():
-                if value:  # Include only non-empty values
-                    # Format the key-value pair in key: value format
-                    details.append(f"{key}: {value}")
-            # Join details with a newline and ensure proper indentation for each item
-            formatted_education.append("\n".join(details))
-        # Separate each experience entry with an additional newline for clarity
-        return "\n\n".join(formatted_education)
+                if value:
+                    edu_paragraph.add_run(f"{key.replace('_', ' ').title()}: {value}\n")
+            edu_paragraph.add_run("\n")
+
+    def insert_paragraph_after(self, paragraph, text=None, style=None):
+        """
+        Inserts a new paragraph after the given paragraph and returns it.
+        """
+        new_p = OxmlElement("w:p")
+        paragraph._p.addnext(new_p)
+        new_para = Paragraph(new_p, paragraph._parent)
+        if text:
+            new_para.add_run(text)
+        if style:
+            new_para.style = style
+        return new_para
 
     def replace_placeholders(self, doc, data, template_type):
-        """Replace placeholders in a Word document."""
+        """Replace placeholders in a Word document and insert special content under the correct headers."""
 
         def add_personal_info(data, template_type):
-            """Generate personal info string dynamically based on template type."""
             if template_type == "code":
                 return "\n".join(
                     [
@@ -142,7 +177,7 @@ class CVProcessor:
                         f"Highest Education: {data.get('highest_education', 'Not provided')}",
                     ]
                 )
-            else:  # Normal template
+            else:
                 return "\n".join(
                     [
                         f"Name: {data.get('name', 'Not provided')}",
@@ -157,25 +192,54 @@ class CVProcessor:
                     ]
                 )
 
+        def insert_experience(after_paragraph, exp_list):
+            """Insert formatted professional experience paragraphs after the given paragraph."""
+            for item in exp_list:
+                new_p = self.insert_paragraph_after(after_paragraph)  # Updated call
+                for key, value in item.items():
+                    if value:
+                        if key == "organisation_name":
+                            run = new_p.add_run(
+                                f"{key.replace('_', ' ').title()}: {value}\n"
+                            )
+                            run.bold = True
+                        else:
+                            new_p.add_run(f"{key.replace('_', ' ').title()}: {value}\n")
+
+        def insert_projects(after_paragraph, proj_list):
+            """Insert formatted project paragraphs after the given paragraph."""
+            for project in proj_list:
+                new_p = self.insert_paragraph_after(after_paragraph)  # Updated call
+                for key, value in project.items():
+                    if value:
+                        if key == "title":
+                            run = new_p.add_run(
+                                f"{key.replace('_', ' ').title()}: {value}\n"
+                            )
+                            run.bold = True
+                        else:
+                            new_p.add_run(f"{key.replace('_', ' ').title()}: {value}\n")
+
+        def insert_skills(after_paragraph, skills_list):
+            """Insert each skill as a bullet point after the given paragraph."""
+            for skill in skills_list:
+                new_p = self.insert_paragraph_after(
+                    after_paragraph, style="List Bullet"
+                )  # Updated call
+                new_p.add_run(skill.strip())
+
+        def insert_education(after_paragraph, education_list):
+            """Insert formatted education paragraphs after the given paragraph."""
+            for item in education_list:
+                new_p = self.insert_paragraph_after(after_paragraph)  # Updated call
+                for key, value in item.items():
+                    if value:
+                        new_p.add_run(f"{key.replace('_', ' ').title()}: {value}\n")
+
         def convert_value(key, value):
-            """Convert individual key-value pairs based on template type."""
-            if (
-                key == "professional_experience"
-                or key == "projects"
-                and isinstance(value, list)
-            ):
-                return self.format_experience(
-                    value
-                )  # Already formatted by format_experience
-            elif key == "skills" or key == "Skills":
-                return self.format_skills(value)  # Already formatted by format_skills
-            elif key == "education" and isinstance(value, list):
-                return self.format_education(
-                    value
-                )  # Already formatted by format_education
-            elif key == "certifications" and isinstance(value, list):
+            """Convert individual key-value pairs for normal placeholders."""
+            if key == "certifications" and isinstance(value, list):
                 return "\n".join(cert["name"] for cert in value)
-            # Handle name, email, phone_1, and phone_2 with `template_type` logic
             if key in ["name", "email", "phone_1", "phone_2"]:
                 if template_type == "code":
                     if key == "name":
@@ -191,33 +255,58 @@ class CVProcessor:
                         return "**@gmail.com"
                     elif key in ["phone_1", "phone_2"]:
                         return "****" if key == "phone_1" else "Not provided"
-            # Fallback for other keys
             return str(value) if value is not None else "Not provided"
 
-        # Replace placeholders in paragraphs
-        for paragraph in doc.paragraphs:
+        # Get a copy of the original paragraphs to avoid processing newly added ones.
+        original_paragraphs = list(doc.paragraphs)
+
+        # Process special placeholders by inserting content immediately after the paragraph that contains the placeholder.
+        for paragraph in original_paragraphs:
+            if "{{professional_experience}}" in paragraph.text:
+                paragraph.text = paragraph.text.replace(
+                    "{{professional_experience}}", ""
+                )
+                insert_experience(paragraph, data.get("professional_experience", []))
+            if "{{projects}}" in paragraph.text:
+                paragraph.text = paragraph.text.replace("{{projects}}", "")
+                insert_projects(paragraph, data.get("projects", []))
+            if "{{skills}}" in paragraph.text:
+                paragraph.text = paragraph.text.replace("{{skills}}", "")
+                insert_skills(paragraph, data.get("skills", []))
+            if "{{education}}" in paragraph.text:
+                paragraph.text = paragraph.text.replace("{{education}}", "")
+                insert_education(paragraph, data.get("education", []))
+
+        # Process remaining placeholders in the original paragraphs.
+        for paragraph in original_paragraphs:
             for key, value in data.items():
-                placeholder = f"{{{{{key}}}}}"  # Dynamic placeholder
+                if key in [
+                    "professional_experience",
+                    "projects",
+                    "skills",
+                    "education",
+                ]:
+                    continue  # already handled
+                placeholder = f"{{{{{key}}}}}"
                 if placeholder in paragraph.text:
-                    # Replace individual placeholders
                     paragraph.text = paragraph.text.replace(
                         placeholder, convert_value(key, value)
                     )
 
-        # Replace placeholders in tables
+        # Process placeholders in tables.
         for table in doc.tables:
             for row in table.rows:
                 for cell in row.cells:
                     for key, value in data.items():
-                        placeholder = f"{{{{{key}}}}}"  # Dynamic placeholder
+                        placeholder = f"{{{{{key}}}}}"
                         if placeholder in cell.text:
                             cell.text = cell.text.replace(
                                 placeholder, convert_value(key, value)
                             )
 
-        # Add combined `personal_info` to the document
+        # Add combined personal info
         combined_personal_info = add_personal_info(data, template_type)
-        for paragraph in doc.paragraphs:
+        for paragraph in original_paragraphs:
             if "{{personal_info}}" in paragraph.text:
                 paragraph.text = paragraph.text.replace(
                     "{{personal_info}}", combined_personal_info
@@ -225,24 +314,17 @@ class CVProcessor:
 
     def fill_cv_template(self, data, output_path, template_type):
         try:
-            # Load the template document
-            template_path = os.path.join(app.root_path, "template.docx")
+            project_root = os.path.dirname(os.path.abspath(__file__))
+            template_path = os.path.join(project_root, "template.docx")
             doc = Document(template_path)
-
-            # Replace placeholders with actual data
             self.replace_placeholders(doc, data, template_type)
-
-            # Create the output directory if it doesn't exist
             output_dir = os.path.dirname(output_path)
             os.makedirs(output_dir, exist_ok=True)
-
-            # Save the document
             doc.save(output_path)
             logging.debug(f"Document created: {output_path}")
         except Exception as e:
             logging.error(f"Error filling the template: {e}")
 
-    # Update the individual functions to use the refactored function
     def fill_template(self, data, output_path):
         self.fill_cv_template(data, output_path, template_type="normal")
 

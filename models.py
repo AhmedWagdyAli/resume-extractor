@@ -87,8 +87,9 @@ class Projects(db.Model):
     cv_id = db.Column(
         db.Integer, db.ForeignKey("cv.id", ondelete="CASCADE"), nullable=False
     )
-    item = db.Column(db.String(255), nullable=True)
+    title = db.Column(db.String(255), nullable=True)
     duration_of_project = db.Column(db.String(255), nullable=True)
+    date = db.Column(db.String(255), nullable=True)
     description = db.Column(db.String(255), nullable=True)
 
 

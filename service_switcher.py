@@ -17,8 +17,7 @@ class ServiceSwitcher:
 
         if service == "chatgpt":
             chatgpt = ChatGpt()
-            parse = chatgpt.invoke(text)
-            data = json.loads(parse)
+            data = chatgpt.invoke(text)
             logging.debug(f"Data received from ChatGPT: {data}")
             return data
         elif service == "deepseek":

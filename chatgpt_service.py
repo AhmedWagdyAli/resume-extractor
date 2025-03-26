@@ -60,12 +60,15 @@ json_content = """{{
     ],
     "projects":[
         {{
-            "item":"",
+            "title":"",
             "duration_of_project":"" ,
-            "description":"",    
+            "date":"",
+            "description":"",   
+        
         }},
         {{
-            "item":"",
+            "title":"",
+            "date": "",
             "duration_of_project":"" ,
             "description":"",    
         }}
@@ -135,16 +138,18 @@ class ChatGPTInputData:
 
         if response.status_code == 200:
             response_json = response.json()
-            content = response_json["choices"][0]["message"]["content"]
-            return content
-            # Extract JSON using regex
-            match = re.search(r"```json\n(.*?)\n```", content, re.DOTALL)
-            if match:
-                json_data = json.loads(match.group(1))  # Parse extracted JSON
-                return json_data["json"]
-            else:
-                print("No JSON found.")
-                return None
+            try:
+                # Extract the JSON under the 'json' key
+                parsed_data = json.loads(
+                    response_json["choices"][0]["message"]["content"]
+                )
+                return parsed_data.get(
+                    "json", {}
+                )  # Return only the JSON content only the JSON content
+            except (KeyError, json.JSONDecodeError):
+                print("Error: Could not extract JSON from response")
+                return {}
+
         else:
             response.raise_for_status()
 

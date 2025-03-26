@@ -54,10 +54,13 @@ class Tasks:
         output_dir = "output"
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-
+        job_title = parsed_data.get("job_title", "No job title")
+        initials = "".join(
+            [name[0].upper() for name in parsed_data.get("name", "").split() if name]
+        )
         today_date = time.strftime("%Y%m%d")
-        unique_filename = f"{today_date}.docx"
-        path = os.path.join(app.root_path, "output", unique_filename)
+        unique_filename = f"{initials}_{today_date}_{job_title}.docx"
+        path = os.path.join(app.root_path, "output", f"F_{unique_filename}")
         path_of_coded_cv = os.path.join(app.root_path, "output", f"B_{unique_filename}")
         path_of_named_cv = os.path.join(app.root_path, "output", f"BN{unique_filename}")
 

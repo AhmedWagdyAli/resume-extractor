@@ -9,57 +9,17 @@ class CVService:
         self.db = db
 
     def save_cv(self, parsed_data):
-        """Save parsed data into the database."""
+        # Save parsed data into the database
         phone = parsed_data.get("phone_1")
         email = parsed_data.get("email")
         job_title = parsed_data.get("job_title", "").lower()
 
         if not job_title:
             job_title = "no job title"
-        """  if not job_title:
-            professional_experience = parsed_data.get("professional_experience", [])
-            if professional_experience:
-                profile = professional_experience[0].get("profile", "")
-                if not profile:
-                    job_title = "no job title"
-                else:
-                    job_title = (
-                        profile.split(":")[0].split(",")[0].split("\n")[0]
-                    ).lower()
-            else:
-                job_title = "no job title" """
 
         if len(job_title) > 50:
             job_title = job_title[:50]
 
-        """ 
-            total_experience_months = 0
-            if experience_years < 1:
-                for experience in parsed_data["professional_experience"]:
-                    duration = experience["duration"]
-                    if "-" in duration:
-                        start_date_str, end_date_str = duration.split("-")
-                        start_date = parser.parse(start_date_str.strip())
-                        print(end_date_str.strip().lower())
-                        if end_date_str.strip().lower() in ["present", "today", "now"]:
-                            end_date = datetime.datetime.now()
-                        else:
-                            end_date = parser.parse(end_date_str.strip())
-                        months = (end_date.year - start_date.year) * 12 + (
-                            end_date.month - start_date.month
-                        )
-                    else:
-                        years_months = re.findall(r"\d+", duration)
-                        months = (
-                            int(years_months[0]) * 12 + int(years_months[1])
-                            if len(years_months) == 2
-                            else 0
-                        )
-                    total_experience_months += months
-                    parsed_data["professional_experience_in_years"] = (
-                        total_experience_months // 12
-                    ) 
-        """
         cv = CV(
             job_title=job_title,
             path_of_cv=parsed_data.get("path_of_cv"),
@@ -98,7 +58,7 @@ class CVService:
             )
             self.db.session.add(experience_entry)
 
-        """ for education in parsed_data.get("education", []):
+        for education in parsed_data.get("education", []):
             if len(education.get("institute_name", "")) > 255:
                 education["institute_name"] = education.get("institute_name")[:255]
             education_entry = Education(
@@ -108,15 +68,16 @@ class CVService:
                 score=education.get("score"),
             )
             self.db.session.add(education_entry)
-        """
+
         if parsed_data.get("projects"):
             for project in parsed_data.get("projects", []):
-                if len(project.get("item", "")) > 255:
-                    project["item"] = project.get("item")[:255]
+                if len(project.get("title", "")) > 255:
+                    project["title"] = project.get("title")[:255]
                 project_entry = Projects(
                     cv_id=cv.id,
-                    item=project.get("item"),
+                    title=project.get("title"),
                     duration_of_project=project.get("duration_of_project"),
+                    date=project.get("date"),
                     description=project.get("description", "")[:255],
                 )
                 self.db.session.add(project_entry)
