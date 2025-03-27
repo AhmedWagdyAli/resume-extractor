@@ -22,21 +22,15 @@ tags:
 
 ## Description
 
-This Python script extracts information from PDF resumes and converts it into a structured JSON format using the Ollama language model. It's designed to automate the process of parsing resumes and extracting key details, making it easier for HR departments, recruiters, and organizations to process large volumes of applications efficiently.
+This Python script extracts information from PDF resumes and converts it into a structured JSON format using openi AI APIS. It's designed to automate the process of parsing resumes and extracting key details, making it easier for HR departments, recruiters, and organizations to process large volumes of applications efficiently.
 
 What sets this script apart is its ability to handle various resume formats and styles. It uses a predefined JSON template to ensure consistent output structure, making it easier to integrate with other systems or databases. The script is designed to be flexible, allowing for customization of the output format and the underlying language model.
 
 We invite you to explore the potential of this script and its data extraction capabilities. For those interested in harnessing its power or seeking further collaboration, we encourage you to reach out to us or contribute to the project on GitHub. Your input drives our continuous improvement, as we collectively pave the way towards enhanced data extraction and document analysis.
 
-- **Developed by:** FODUU AI
-- **Further Developed by:** Ahmed Wagdy
+- **Developed by:** Ahmed Wagdy
 - **Model type:** Extraction
 - **Task:** Resume Parsing and Information Extraction
-
-### Supported Output Fields
-
-The exact fields depend on the JSON template which have includes the following fields:
-['name', 'email', 'phone_1', 'phone_2', 'address', 'city', 'highest_education', 'is_fresher','is_student', 'professional_experience_in_years', 'skills' ,'linkedin' , 'applied_for_profile', 'education', 'professional_experience']
 
 ## Uses
 
@@ -57,8 +51,6 @@ The model is not designed for tasks unrelated to resume parsing or for processin
 The Resume Information Extractor may have some limitations and risks, including:
 
 - Performance may vary based on the format and structure of the input resume.
-- The quality of extraction depends on the capabilities of the underlying Ollama model.
-- It may struggle with highly unconventional resume formats or non-English resumes.
 - The script does not verify the accuracy of the information in the resume.
 
 ### Recommendations
@@ -78,12 +70,6 @@ To begin using the Resume Information Extractor, follow these steps:
 2. Install the required packages:
 
    ```bash
-   pip install langchain_community pdfminer.six ollama
-   ```
-
-   or
-
-   ```bash
    pip install -r requirements.txt
    ```
 
@@ -99,17 +85,6 @@ then upload the cv you wanted parsed
 
 ## Objective
 
-This script uses the Ollama language model to understand and extract information from resume text. The specific architecture depends on the Ollama model being used.
+This project uses the openAi language apis(chatgpt/deepseek) to understand and extract information from resume text.
 
-## Contact
 
-For inquiries and contributions, please contact us at info@foduu.com.
-
-```bibtex
-@contact{foduu,
-  author    = {Foduu},
-  title     = {Resume Extractor},
-  year      = {2024}
-}
-
-```
