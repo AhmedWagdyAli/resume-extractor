@@ -77,6 +77,7 @@ class DeepSeekInputData:
             f"Parse the provided text into structured {json_content}. "
             "Calculate years of experience based on job durations. "
             "Handle 'Present' or 'current' as today's date (February 2025). "
+            "make sure that job_title isn't empty."
             "Return the result as JSON under the 'json' key."
         )
 
